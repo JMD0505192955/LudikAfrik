@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Billes Faso</title>
+<style>
+  :root{--vert:#0E7A3C;--rouge:#E32219;--or:#F5C21B;--nuit:#12130F;--craie:#FAF7EF;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:#1a1510;font-family:"Arial Black","Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:none;
+    user-select:none;-webkit-user-select:none;}
+  header{width:100%;max-width:430px;padding:9px 14px 5px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-size:17px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial;font-weight:400;font-size:8.5px;letter-spacing:2.5px;color:#8b8f84;margin-top:3px;}
+  .scores{text-align:right;line-height:1.2;}
+  .scores .val{font-size:19px;color:var(--or);}
+  .scores .lbl{font-family:Arial;font-size:9px;letter-spacing:2px;color:#8b8f84;}
+  #niveaux{display:flex;gap:6px;justify-content:center;padding:0 14px 7px;width:100%;max-width:430px;}
+  .nivBtn{flex:1;background:#2a2016;border:1.5px solid rgba(245,194,27,.2);color:#a89878;
+    border-radius:999px;padding:6px 4px;font-family:inherit;font-size:11px;}
+  .nivBtn.sel{background:var(--or);border-color:var(--or);color:var(--nuit);font-weight:bold;}
+  #msg{height:20px;font-size:12.5px;text-align:center;color:var(--or);font-family:Arial;}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;justify-content:center;padding:0 8px 6px;}
+  canvas{display:block;border-radius:12px;background:linear-gradient(180deg,#241a10,#15100a);
+    box-shadow:inset 0 0 40px rgba(0,0,0,.5);}
+  #fin{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,13,8,.94);text-align:center;padding:22px;border-radius:12px;}
+  #fin h2{font-size:38px;color:var(--or);margin-bottom:4px;}
+  #fin .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px;width:100%;max-width:320px;margin:8px 0 16px;}
+  #fin .stat{background:rgba(245,194,27,.08);border-radius:10px;padding:10px 5px;}
+  #fin .stat .v{font-size:19px;font-weight:bold;color:var(--or);}
+  #fin .stat .l{font-size:9px;color:#a89878;letter-spacing:1px;margin-top:2px;}
+  #fin p{font-family:Arial;font-size:13px;color:#c9b98f;margin-bottom:16px;line-height:1.5;max-width:320px;}
+  #fin button{font-family:inherit;font-size:15px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:12px 32px;}
+  #partageBtns{display:flex;flex-direction:column;gap:7px;width:100%;max-width:290px;margin-bottom:12px;}
+  #partageBtns button{background:rgba(255,255,255,.05);border:1px solid #3d3527;color:var(--craie);
+    border-radius:10px;padding:10px;font-size:12.5px;letter-spacing:.3px;}
+  #partageBtns #btnPartager{border-color:#25D366;color:#25D366;}
+  #partageBtns #btnDefier{border-color:var(--or);color:var(--or);}
+  footer{width:100%;max-width:430px;padding:5px 14px 9px;text-align:center;
+    font-family:Arial;font-size:10px;color:#6c7064;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">BILLES <span>FASO</span><small>ALIGNE 3 COULEURS</small></div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:29px;height:29px;font-size:12px">🔊</button>
+    <div class="scores"><div class="val" id="score">0</div><div class="lbl">RECORD <span id="best">0</span></div></div>
+  </div>
+</header>
+<div id="niveaux">
+  <button class="nivBtn" data-n="tranquille">🟢 Tranquille</button>
+  <button class="nivBtn sel" data-n="normal">🟡 Normal</button>
+  <button class="nivBtn" data-n="rapide">🔴 Rapide</button>
+</div>
+<div id="msg">Glisse pour viser, relâche pour tirer</div>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="fin">
+    <h2 id="finTitre"></h2>
+    <div class="stats">
+      <div class="stat"><div class="v" id="fBilles">0</div><div class="l">ÉCLATÉES</div></div>
+      <div class="stat"><div class="v" id="fCombo">0</div><div class="l">MEILLEUR COMBO</div></div>
+      <div class="stat"><div class="v" id="fNiveau">—</div><div class="l">NIVEAU</div></div>
+    </div>
+    <p id="finTexte"></p>
+    <div id="partageBtns">
+      <button id="btnPartager">📤 Partager mon score</button>
+      <button id="btnDefier">⚔️ Défier un ami</button>
+    </div>
+    <button id="rejouer">REJOUER</button>
+  </div>
+</div>
+<footer>Démo VAS — classement hebdo &amp; lots airtime à venir</footer>
+<script>
+(function(){
+"use strict";
+// ---------- Son ----------
+var actx,muet=false;
+try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+function ac(){if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)();return actx;}
+function tone(f,d,t,v,gl){if(muet)return;try{var c=ac(),o=c.createOscillator(),g=c.createGain();
+o.type=t||'sine';o.frequency.value=f;if(gl)o.frequency.linearRampToValueAtTime(gl,c.currentTime+d);
+g.gain.value=v||0.11;g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+d);
+o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+d);}catch(e){}}
+var SFX={
+  tir:function(){tone(360,0.06,'square',0.06,520);},
+  colle:function(){tone(300,0.05,'sine',0.07);},
+  eclat:function(n){
+    var base=520+Math.min(6,n)*70;
+    [0,1,2].forEach(function(k){setTimeout(function(){tone(base+k*130,0.09,'triangle',0.11);},k*45);});
+  },
+  chute:function(){tone(240,0.18,'sine',0.08,120);},
+  victoire:function(){[523,659,784,988,1319].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.14);},i*95);});},
+  echec:function(){[392,311,247].forEach(function(f,i){setTimeout(function(){tone(f,0.26,'sine',0.12);},i*140);});},
+  danger:function(){tone(150,0.25,'sawtooth',0.10,90);},
+  estMuet:function(){return muet;},
+  toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+};
+(function(){var b=document.getElementById('btnSon');
+function m(){b.textContent=SFX.estMuet()?'🔇':'🔊';}m();
+b.addEventListener('click',function(){SFX.toggle();m();});})();
+
+function domConfetti(){
+  var cols=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<26;i++){
+    var el=document.createElement('div'),s=4+Math.random()*4;
+    el.style.cssText='position:fixed;z-index:60;pointer-events:none;border-radius:2px;';
+    el.style.width=s+'px';el.style.height=s+'px';el.style.background=cols[i%cols.length];
+    el.style.left=(window.innerWidth/2+(Math.random()-0.5)*70)+'px';el.style.top='40%';
+    document.body.appendChild(el);
+    var dx=(Math.random()-0.5)*260,dy=200+Math.random()*200,r=Math.random()*720-360,d=900+Math.random()*500;
+    el.animate([{transform:'translate(0,0) rotate(0)',opacity:1},
+      {transform:'translate('+dx+'px,'+dy+'px) rotate('+r+'deg)',opacity:0}],
+      {duration:d,easing:'cubic-bezier(.25,.46,.45,.94)'});
+    (function(e,t){setTimeout(function(){e.remove();},t+50);})(el,d);
+  }
+}
+
+var cvs=document.getElementById('c'), ctx=cvs.getContext('2d');
+var $=function(i){return document.getElementById(i);};
+
+// ================= PARAMÈTRES =================
+var COULEURS=[
+  {c:'#E32219',c2:'#8f1610'}, // rouge
+  {c:'#F5C21B',c2:'#a8830a'}, // or
+  {c:'#0E7A3C',c2:'#084d25'}, // vert
+  {c:'#3d7fd0',c2:'#24508a'}, // bleu
+  {c:'#9a5bc4',c2:'#5f3480'}, // violet
+  {c:'#e88a2a',c2:'#9c5613'}, // orange
+];
+var NIVEAUX={
+  tranquille:{nom:'Tranquille',couleurs:4,rangs:7,descente:5,coef:0.8},
+  normal:    {nom:'Normal',    couleurs:5,rangs:8,descente:3,coef:1.0},
+  rapide:    {nom:'Rapide',    couleurs:6,rangs:9,descente:2,coef:1.4},
+};
+var niveau='normal';
+try{var nv=localStorage.getItem('fasogames_billes_niv');if(nv&&NIVEAUX[nv])niveau=nv;}catch(e){}
+function N(){return NIVEAUX[niveau];}
+
+var COLS=9;          // colonnes sur les rangs pairs
+var W=0,H=0,DPR=1,R=0,LIGNE_H=0;
+var grille=[];       // grille[r][c] = index couleur ou null
+var tireur,projectile,suivante,angle,visee;
+var score=0,best=0,billesEclatees=0,combo=0,meilleurCombo=0,coups=0,over=false;
+var particules=[],chutes=[];
+
+try{best=parseInt(localStorage.getItem('fasogames_billes_best')||'0',10)||0;}catch(e){}
+
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  var r=cvs.parentElement.getBoundingClientRect();
+  W=Math.min(r.width-4,414); H=r.height-4;
+  cvs.style.width=W+'px';cvs.style.height=H+'px';
+  cvs.width=W*DPR;cvs.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  R=(W/(COLS+0.5))/2;
+  LIGNE_H=R*1.72;
+}
+window.addEventListener('resize',function(){resize();});
+
+// ---- coordonnées ----
+function colsDuRang(r){return (r%2===0)?COLS:COLS-1;}
+function centre(r,c){
+  var dx=(r%2===0)?R:R*2;
+  return {x:dx+c*R*2, y:R+2+r*LIGNE_H};
+}
+function nbRangs(){return Math.floor((H-R*3.6)/LIGNE_H);}
+
+function nouvelleGrille(){
+  grille=[];
+  var total=nbRangs();
+  for(var r=0;r<total;r++){
+    var ligne=[];
+    for(var c=0;c<colsDuRang(r);c++){
+      ligne.push(r<N().rangs?Math.floor(Math.random()*N().couleurs):null);
+    }
+    grille.push(ligne);
+  }
+}
+function couleurAleatoirePresente(){
+  var presentes={};
+  for(var r=0;r<grille.length;r++)for(var c=0;c<grille[r].length;c++){
+    if(grille[r][c]!==null)presentes[grille[r][c]]=1;
+  }
+  var liste=Object.keys(presentes).map(Number);
+  if(!liste.length)return Math.floor(Math.random()*N().couleurs);
+  return liste[Math.floor(Math.random()*liste.length)];
+}
+function reset(full){
+  over=false;
+  if(full){score=0;billesEclatees=0;meilleurCombo=0;coups=0;}
+  combo=0;particules=[];chutes=[];
+  nouvelleGrille();
+  projectile=null;
+  tireur={x:W/2,y:H-R*1.5};
+  suivante=couleurAleatoirePresente();
+  chargerProjectile();
+  angle=-Math.PI/2;visee=null;
+  $('score').textContent=score;$('best').textContent=best;
+  $('fin').style.display='none';
+  $('msg').textContent='Glisse pour viser, relâche pour tirer';
+  majBoutons();
+}
+function chargerProjectile(){
+  projectile={x:tireur.x,y:tireur.y,vx:0,vy:0,col:suivante,enVol:false};
+  suivante=couleurAleatoirePresente();
+}
+
+// ---- voisins hexagonaux ----
+function voisins(r,c){
+  var pair=(r%2===0);
+  var d=pair
+    ? [[0,-1],[0,1],[-1,-1],[-1,0],[1,-1],[1,0]]
+    : [[0,-1],[0,1],[-1,0],[-1,1],[1,0],[1,1]];
+  var res=[];
+  for(var i=0;i<d.length;i++){
+    var nr=r+d[i][0], nc=c+d[i][1];
+    if(nr<0||nr>=grille.length)continue;
+    if(nc<0||nc>=grille[nr].length)continue;
+    res.push([nr,nc]);
+  }
+  return res;
+}
+function groupeCouleur(r,c){
+  var col=grille[r][c];
+  if(col===null)return [];
+  var vus={}, pile=[[r,c]], res=[];
+  vus[r+','+c]=1;
+  while(pile.length){
+    var p=pile.pop();
+    res.push(p);
+    voisins(p[0],p[1]).forEach(function(v){
+      var k=v[0]+','+v[1];
+      if(vus[k])return;
+      if(grille[v[0]][v[1]]!==col)return;
+      vus[k]=1;pile.push(v);
+    });
+  }
+  return res;
+}
+function orphelines(){
+  // billes non reliées au plafond
+  var vus={}, pile=[];
+  for(var c=0;c<grille[0].length;c++){
+    if(grille[0][c]!==null){pile.push([0,c]);vus['0,'+c]=1;}
+  }
+  while(pile.length){
+    var p=pile.pop();
+    voisins(p[0],p[1]).forEach(function(v){
+      var k=v[0]+','+v[1];
+      if(vus[k])return;
+      if(grille[v[0]][v[1]]===null)return;
+      vus[k]=1;pile.push(v);
+    });
+  }
+  var res=[];
+  for(var r=0;r<grille.length;r++)for(var cc=0;cc<grille[r].length;cc++){
+    if(grille[r][cc]!==null&&!vus[r+','+cc])res.push([r,cc]);
+  }
+  return res;
+}
+
+// ---- tir ----
+function tirer(){
+  if(over||projectile.enVol)return;
+  projectile.enVol=true;
+  var v=13;
+  projectile.vx=Math.cos(angle)*v;
+  projectile.vy=Math.sin(angle)*v;
+  coups++;
+  SFX.tir();
+  visee=null;
+}
+function poser(){
+  // trouver la case libre la plus proche
+  var meilleur=null,dmin=1e9;
+  for(var r=0;r<grille.length;r++){
+    for(var c=0;c<grille[r].length;c++){
+      if(grille[r][c]!==null)continue;
+      var p=centre(r,c);
+      var d=(p.x-projectile.x)*(p.x-projectile.x)+(p.y-projectile.y)*(p.y-projectile.y);
+      if(d<dmin){
+        // n'accepter que si adjacente à une bille ou au plafond
+        var ok=(r===0);
+        if(!ok)voisins(r,c).forEach(function(v){if(grille[v[0]][v[1]]!==null)ok=true;});
+        if(ok){dmin=d;meilleur=[r,c];}
+      }
+    }
+  }
+  if(!meilleur){chargerProjectile();return;}
+  var rr=meilleur[0], cc=meilleur[1];
+  grille[rr][cc]=projectile.col;
+  SFX.colle();
+  // groupe ?
+  var g=groupeCouleur(rr,cc);
+  if(g.length>=3){
+    combo++;
+    if(combo>meilleurCombo)meilleurCombo=combo;
+    g.forEach(function(p){
+      var ct=centre(p[0],p[1]);
+      exploser(ct.x,ct.y,COULEURS[grille[p[0]][p[1]]].c);
+      grille[p[0]][p[1]]=null;
+    });
+    var pts=Math.round(g.length*12*(1+(combo-1)*0.35));
+    score+=pts;billesEclatees+=g.length;
+    SFX.eclat(g.length);
+    $('msg').textContent='💥 '+g.length+' billes — +'+pts+' pts'+(combo>1?' (combo ×'+combo+')':'');
+    // orphelines
+    var orph=orphelines();
+    if(orph.length){
+      orph.forEach(function(p){
+        var ct=centre(p[0],p[1]);
+        chutes.push({x:ct.x,y:ct.y,vy:0,col:grille[p[0]][p[1]]});
+        grille[p[0]][p[1]]=null;
+      });
+      var bonus=orph.length*25;
+      score+=bonus;billesEclatees+=orph.length;
+      SFX.chute();
+      $('msg').textContent+=' · '+orph.length+' tombées +'+bonus;
+    }
+    // victoire ?
+    var reste=0;
+    for(var r2=0;r2<grille.length;r2++)for(var c2=0;c2<grille[r2].length;c2++)if(grille[r2][c2]!==null)reste++;
+    if(reste===0){terminer(true);return;}
+  }else{
+    combo=0;
+    // descente périodique
+    if(coups%N().descente===0){descendre();}
+  }
+  $('score').textContent=score;
+  chargerProjectile();
+  verifierDefaite();
+}
+function descendre(){
+  var total=nbRangs();
+  // décaler tout d'un rang vers le bas
+  for(var r=grille.length-1;r>0;r--){
+    for(var c=0;c<grille[r].length;c++){
+      var src=grille[r-1][c];
+      grille[r][c]=(c<grille[r-1].length)?src:null;
+    }
+  }
+  for(var c2=0;c2<grille[0].length;c2++){
+    grille[0][c2]=Math.floor(Math.random()*N().couleurs);
+  }
+  SFX.danger();
+  $('msg').textContent='⚠️ Le mur descend !';
+}
+function verifierDefaite(){
+  var limite=H-R*5.6;
+  for(var r=0;r<grille.length;r++){
+    for(var c=0;c<grille[r].length;c++){
+      if(grille[r][c]===null)continue;
+      if(centre(r,c).y+R>=limite){terminer(false);return;}
+    }
+  }
+}
+function exploser(x,y,col){
+  for(var i=0;i<9;i++){
+    var a=Math.random()*Math.PI*2, v=1.4+Math.random()*2.6;
+    particules.push({x:x,y:y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,vie:1,col:col,t:2+Math.random()*3});
+  }
+}
+function terminer(gagne){
+  over=true;
+  if(score>best){best=score;try{localStorage.setItem('fasogames_billes_best',best);}catch(e){}}
+  $('finTitre').textContent=gagne?'🏆 Grille nettoyée !':score+' pts';
+  $('fBilles').textContent=billesEclatees;
+  $('fCombo').textContent=meilleurCombo;
+  $('fNiveau').textContent=N().nom;
+  var seuil=Math.round(900*N().coef);
+  $('finTexte').textContent = gagne
+    ? 'Tu as fait le vide, chapeau ! Le classement hebdo t\'attend.'
+    : score>=seuil ? 'Beau score ! Les combos rapportent gros, continue.'
+    : 'Vise les grappes et fais tomber les billes du dessus pour marquer plus.';
+  if(gagne||score>=seuil){SFX.victoire();domConfetti();}else{SFX.echec();}
+  var envoi=Math.round(Math.min(700,score*0.35)*N().coef);
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Billes',
+    score:envoi,victoire:gagne||score>=seuil},'*');}catch(e){}}
+  $('fin').style.display='flex';
+}
+
+// ---- rendu ----
+function bille(x,y,idx,r){
+  r=r||R;
+  var col=COULEURS[idx];
+  var g=ctx.createRadialGradient(x-r*0.32,y-r*0.34,r*0.12,x,y,r);
+  g.addColorStop(0,'#ffffff');
+  g.addColorStop(0.22,col.c);
+  g.addColorStop(1,col.c2);
+  ctx.fillStyle=g;
+  ctx.beginPath();ctx.arc(x,y,r*0.94,0,7);ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=1.4;
+  ctx.beginPath();ctx.arc(x,y,r*0.94,0,7);ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.75)';
+  ctx.beginPath();ctx.ellipse(x-r*0.32,y-r*0.36,r*0.24,r*0.17,-0.5,0,7);ctx.fill();
+}
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  // ligne de danger
+  var limite=H-R*5.6;
+  ctx.strokeStyle='rgba(227,34,25,.35)';ctx.lineWidth=2;ctx.setLineDash([7,6]);
+  ctx.beginPath();ctx.moveTo(0,limite);ctx.lineTo(W,limite);ctx.stroke();
+  ctx.setLineDash([]);
+  // grille
+  for(var r=0;r<grille.length;r++){
+    for(var c=0;c<grille[r].length;c++){
+      if(grille[r][c]===null)continue;
+      var p=centre(r,c);
+      bille(p.x,p.y,grille[r][c]);
+    }
+  }
+  // chutes
+  chutes.forEach(function(b){bille(b.x,b.y,b.col);});
+  // particules
+  particules.forEach(function(p){
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.t*p.vie,0,7);ctx.fill();
+    ctx.globalAlpha=1;
+  });
+  // ligne de visée
+  if(visee&&!projectile.enVol&&!over){
+    ctx.strokeStyle='rgba(245,194,27,.5)';ctx.lineWidth=2;ctx.setLineDash([5,7]);
+    ctx.beginPath();
+    ctx.moveTo(tireur.x,tireur.y);
+    var lx=tireur.x+Math.cos(angle)*260, ly=tireur.y+Math.sin(angle)*260;
+    ctx.lineTo(lx,ly);ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  // socle du tireur
+  ctx.fillStyle='rgba(245,194,27,.12)';
+  ctx.beginPath();ctx.arc(tireur.x,tireur.y,R*1.5,0,7);ctx.fill();
+  // projectile
+  if(projectile)bille(projectile.x,projectile.y,projectile.col);
+  // bille suivante
+  ctx.fillStyle='rgba(255,255,255,.45)';
+  ctx.font='9px Arial';ctx.textAlign='center';
+  ctx.fillText('SUIVANTE',W-R*2.2,H-R*2.9);
+  bille(W-R*2.2,H-R*1.5,suivante,R*0.78);
+}
+function step(dt){
+  if(projectile&&projectile.enVol){
+    projectile.x+=projectile.vx*dt;
+    projectile.y+=projectile.vy*dt;
+    if(projectile.x<R){projectile.x=R;projectile.vx*=-1;}
+    if(projectile.x>W-R){projectile.x=W-R;projectile.vx*=-1;}
+    if(projectile.y<R+2){projectile.enVol=false;poser();return;}
+    // collision avec la grille
+    for(var r=0;r<grille.length;r++){
+      for(var c=0;c<grille[r].length;c++){
+        if(grille[r][c]===null)continue;
+        var p=centre(r,c);
+        var dx=p.x-projectile.x, dy=p.y-projectile.y;
+        if(dx*dx+dy*dy<(R*1.85)*(R*1.85)){
+          projectile.enVol=false;poser();return;
+        }
+      }
+    }
+    if(projectile.y>H+R*2||projectile.x<-R*2||projectile.x>W+R*2){
+      projectile.enVol=false;chargerProjectile();
+    }
+  }
+  for(var i=particules.length-1;i>=0;i--){
+    var pa=particules[i];
+    pa.x+=pa.vx*dt;pa.y+=pa.vy*dt;pa.vy+=0.16*dt;pa.vie-=0.028*dt;
+    if(pa.vie<=0)particules.splice(i,1);
+  }
+  for(var j=chutes.length-1;j>=0;j--){
+    var ch=chutes[j];
+    ch.vy+=0.45*dt;ch.y+=ch.vy*dt;
+    if(ch.y>H+R*2)chutes.splice(j,1);
+  }
+}
+
+// ---- interaction ----
+function pos(e){
+  var r=cvs.getBoundingClientRect();
+  var t=e.touches?e.touches[0]:e;
+  return {x:t.clientX-r.left,y:t.clientY-r.top};
+}
+function viser(e){
+  if(over||projectile.enVol)return;
+  var p=pos(e);
+  var dx=p.x-tireur.x, dy=p.y-tireur.y;
+  var a=Math.atan2(dy,dx);
+  // limiter aux angles vers le haut
+  var min=-Math.PI+0.42, max=-0.42;
+  if(a>max&&a<Math.PI/2)a=max;
+  else if(a<min||a>=Math.PI/2)a=min;
+  angle=a;visee=p;
+}
+cvs.addEventListener('touchstart',function(e){viser(e);e.preventDefault();},{passive:false});
+cvs.addEventListener('touchmove',function(e){viser(e);e.preventDefault();},{passive:false});
+cvs.addEventListener('touchend',function(e){if(visee)tirer();e.preventDefault();},{passive:false});
+cvs.addEventListener('mousedown',function(e){viser(e);});
+cvs.addEventListener('mousemove',function(e){if(visee)viser(e);});
+window.addEventListener('mouseup',function(){if(visee)tirer();});
+
+document.querySelectorAll('.nivBtn').forEach(function(b){
+  b.addEventListener('click',function(){
+    niveau=b.dataset.n;
+    try{localStorage.setItem('fasogames_billes_niv',niveau);}catch(e){}
+    reset(true);
+  });
+});
+function majBoutons(){
+  document.querySelectorAll('.nivBtn').forEach(function(b){
+    b.classList.toggle('sel',b.dataset.n===niveau);
+  });
+}
+$('rejouer').addEventListener('click',function(){reset(true);});
+
+// ---- partage ----
+var LIEN='https://teal-muffin-8e3f01.netlify.app';
+function msgScore(){
+  return "🔴 J'ai marqué "+score+" pts aux Billes Faso ("+N().nom+", "+billesEclatees+
+    " billes éclatées) ! À ton tour de jouer ici 👉 "+LIEN;
+}
+function msgDefi(){
+  return "⚔️ Je te défie aux Billes Faso ! Mon score : "+score+" pts en niveau "+N().nom+
+    ". Bats-moi si tu peux 👉 "+LIEN;
+}
+function envoyer(m){
+  if(navigator.share)navigator.share({title:'Billes Faso',text:m,url:LIEN}).catch(function(){});
+  else window.open('https://wa.me/?text='+encodeURIComponent(m),'_blank');
+}
+$('btnPartager').addEventListener('click',function(){envoyer(msgScore());});
+$('btnDefier').addEventListener('click',function(){envoyer(msgDefi());});
+
+window.__billes={
+  state:function(){return {score:score,billes:billesEclatees,combo:meilleurCombo,over:over,
+    niveau:niveau,coups:coups,enVol:projectile?projectile.enVol:false,
+    restantes:(function(){var n=0;for(var r=0;r<grille.length;r++)for(var c=0;c<grille[r].length;c++)if(grille[r][c]!==null)n++;return n;})(),
+    muet:SFX.estMuet()};},
+  tirerAngle:function(a){
+    if(over||projectile.enVol)return false;
+    // appliquer les mêmes limites qu'un joueur réel
+    var min=-Math.PI+0.42, max=-0.42;
+    if(a>max)a=max;
+    if(a<min)a=min;
+    angle=a;tirer();return true;
+  },
+  changerNiveau:function(n){if(NIVEAUX[n]){niveau=n;reset(true);}},
+  forcerFin:function(g){terminer(!!g);},
+  msgScore:msgScore,msgDefi:msgDefi,
+  diag:function(){
+    var basY=0,basR=-1;
+    for(var r=0;r<grille.length;r++)for(var c=0;c<grille[r].length;c++){
+      if(grille[r][c]===null)continue;
+      var y=centre(r,c).y;
+      if(y>basY){basY=y;basR=r;}
+    }
+    return {limite:Math.round(H-R*5.6), basseBilleY:Math.round(basY), basRang:basR,
+      nbRangs:grille.length, H:Math.round(H), R:Math.round(R), LIGNE_H:Math.round(LIGNE_H),
+      descenteTous:N().descente, coups:coups};
+  },
+  descendre:function(){descendre();}
+};
+
+var last=0;
+function loop(now){
+  var dt=Math.min(2.5,(now-last)/16.7);last=now;
+  if(!over)step(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+resize();reset(true);
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

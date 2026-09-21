@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Hélico Faso</title>
+<style>
+  :root{
+    --vert:#0E7A3C; --vert-fonce:#0A5C2D; --rouge:#E32219; --or:#F5C21B;
+    --nuit:#12130F; --craie:#FAF7EF;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    background:var(--nuit);
+    font-family:"Arial Black","Segoe UI",Arial,sans-serif;
+    color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;
+    overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;
+  }
+  header{
+    width:100%;max-width:430px;padding:12px 16px 8px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .logo{font-size:20px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial,sans-serif;font-weight:400;font-size:9px;letter-spacing:3px;color:#8b8f84;margin-top:3px;}
+  .scores{text-align:right;line-height:1.25;}
+  .scores .val{font-size:20px;color:var(--or);}
+  .scores .lbl{font-family:Arial,sans-serif;font-size:9px;letter-spacing:2px;color:#8b8f84;}
+  #msg{height:26px;font-size:14px;letter-spacing:.5px;text-align:center;color:var(--or);}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;justify-content:center;padding:0 12px 4px;}
+  canvas{display:block;border-radius:14px;}
+  #fin{
+    position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,19,15,.88);text-align:center;padding:24px;border-radius:14px;
+  }
+  #fin h2{font-size:30px;color:var(--or);margin-bottom:6px;}
+  #fin p{font-family:Arial,sans-serif;font-size:14px;color:#c9ccc0;margin-bottom:20px;line-height:1.5;}
+  #fin button{
+    font-family:inherit;font-size:16px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:14px 34px;
+  }
+  #fin button:active{transform:scale(.96);}
+  footer{
+    width:100%;max-width:430px;padding:8px 16px 14px;text-align:center;
+    font-family:Arial,sans-serif;font-size:11px;color:#6c7064;letter-spacing:.5px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">HÉLICO <span>FASO</span><small>TIENS DANS LE TUNNEL</small></div>
+  <div style="display:flex;align-items:center;gap:0"><button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:32px;height:32px;font-size:14px;margin-right:8px">🔊</button>
+<div class="scores">
+    <div class="val"><span id="score">0</span> m</div>
+    <div class="lbl">RECORD <span id="best">0</span> m</div>
+  </div>
+</div>
+</header>
+<div id="msg">Appuie pour décoller 🚁</div>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="fin">
+    <h2 id="finTitre"></h2>
+    <p id="finTexte"></p>
+    <button id="rejouer">REJOUER</button>
+  </div>
+</div>
+<footer>Démo VAS — classement hebdo &amp; lots airtime à venir</footer>
+
+<script>
+(function(){
+"use strict";
+// ===== Kit sonore Faso Games (synthétisé, 0 Ko d'assets, silencieux par défaut respecté) =====
+var SFX=(function(){
+  var ctx,muet=false;
+  try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+  function ac(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();return ctx;}
+  function tone(freq,dur,type,vol,glide){
+    if(muet)return;
+    try{
+      var c=ac();var o=c.createOscillator();var g=c.createGain();
+      o.type=type||'sine';o.frequency.value=freq;
+      if(glide)o.frequency.linearRampToValueAtTime(glide,c.currentTime+dur);
+      g.gain.value=vol||0.15;
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+      o.connect(g);g.connect(c.destination);
+      o.start();o.stop(c.currentTime+dur);
+    }catch(e){}
+  }
+  return{
+    tap:function(){tone(440,0.05,'square',0.08);},
+    bon:function(){tone(523,0.09,'sine',0.14);setTimeout(function(){tone(784,0.12,'sine',0.14);},70);},
+    mauvais:function(){tone(160,0.22,'sawtooth',0.12,90);},
+    victoire:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.15);},i*90);});},
+    defaite:function(){[392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.22,'sine',0.12);},i*120);});},
+    piece:function(){tone(988,0.08,'triangle',0.12,1400);},
+    tick:function(){tone(300,0.03,'square',0.05);},
+    estMuet:function(){return muet;},
+    toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+  };
+})();
+// Bouton mute (à placer dans le header de chaque jeu)
+function initBoutonSon(id){
+  var b=document.getElementById(id);
+  if(!b)return;
+  function maj(){b.textContent=SFX.estMuet()?'🔇':'🔊';}
+  maj();
+  b.addEventListener('click',function(){SFX.toggle();maj();});
+}
+// Confetti simple (petites particules colorées, pour les écrans de victoire)
+function confetti(canvas,ctx,cx,cy){
+  var parts=[];
+  var couleurs=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<24;i++){
+    var a=Math.random()*Math.PI*2,v=2+Math.random()*3;
+    parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,g:0.12,vie:1,col:couleurs[i%couleurs.length],taille:3+Math.random()*3});
+  }
+  return parts;
+}
+function drawConfetti(ctx,parts,dt){
+  for(var i=parts.length-1;i>=0;i--){
+    var p=parts[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vie-=0.018*dt;
+    if(p.vie<=0){parts.splice(i,1);continue;}
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.taille/2,p.y-p.taille/2,p.taille,p.taille);
+    ctx.globalAlpha=1;
+  }
+}
+
+
+function domConfetti(){
+  const colors=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(let i=0;i<28;i++){
+    const el=document.createElement('div');
+    const size=4+Math.random()*4;
+    el.style.cssText='position:fixed;z-index:60;pointer-events:none;border-radius:2px;';
+    el.style.width=size+'px';el.style.height=size+'px';
+    el.style.background=colors[i%colors.length];
+    el.style.left=(window.innerWidth/2+(Math.random()-0.5)*60)+'px';
+    el.style.top='38%';
+    document.body.appendChild(el);
+    const dx=(Math.random()-0.5)*260, dy=200+Math.random()*220, rot=Math.random()*720-360;
+    const dur=900+Math.random()*500;
+    el.animate([
+      {transform:'translate(0,0) rotate(0deg)',opacity:1},
+      {transform:'translate('+dx+'px,'+dy+'px) rotate('+rot+'deg)',opacity:0}
+    ],{duration:dur,easing:'cubic-bezier(.25,.46,.45,.94)'});
+    setTimeout(()=>el.remove(),dur+50);
+  }
+}
+initBoutonSon("btnSon");
+
+const cvs=document.getElementById('c'), ctx=cvs.getContext('2d');
+const scoreEl=document.getElementById('score'), bestEl=document.getElementById('best');
+const msg=document.getElementById('msg');
+const fin=document.getElementById('fin'), finTitre=document.getElementById('finTitre'),
+      finTexte=document.getElementById('finTexte');
+let W=0,H=0,DPR=1;
+let confettiParts=[];
+
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  const r=cvs.parentElement.getBoundingClientRect();
+  W=r.width-24; H=r.height-8;
+  cvs.style.width=W+'px'; cvs.style.height=H+'px';
+  cvs.width=W*DPR; cvs.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize',resize);
+
+// ---- État ----
+const SEG=14;              // largeur d'une colonne de terrain
+let heli, terrain, blocks, dist, speed, gapH, gapY, trend;
+let pressing=false, alive=true, started=false, best=0, smoke=[];
+
+function reset(){
+  heli={x:0, y:0, vy:0, tilt:0, rot:0};
+  heli.x=W*0.24; heli.y=H*0.45;
+  terrain=[]; blocks=[]; smoke=[];
+  dist=0; speed=2.6;
+  gapH=H*0.62; gapY=H*0.19; trend=0;
+  const n=Math.ceil(W/SEG)+3;
+  for(let i=0;i<n;i++) terrain.push(makeCol());
+  alive=true; started=false; pressing=false;
+  scoreEl.textContent='0';
+  msg.textContent="Appuie pour décoller 🚁";
+}
+
+function makeCol(){
+  // marche aléatoire lissée du tunnel
+  if(Math.random()<0.08) trend=(Math.random()-0.5)*8;
+  gapY+=trend;
+  gapY=Math.max(H*0.04, Math.min(H-gapH-H*0.04, gapY));
+  return {top:gapY, bot:gapY+gapH};
+}
+
+function spawnBlock(){
+  const last=terrain[terrain.length-1];
+  const bh=Math.min(gapH*0.42, 90);
+  const by=last.top+10+Math.random()*(gapH-bh-20);
+  blocks.push({x:W+40, y:by, w:26, h:bh});
+}
+
+// ---- Logique ----
+let blockTimer=0;
+function step(dt){
+  if(!started||!alive)return;
+  // physique
+  heli.vy += (pressing?-0.42:0.34)*dt;
+  heli.vy = Math.max(-7,Math.min(7,heli.vy));
+  heli.y += heli.vy*dt;
+  heli.tilt += ((pressing?-0.22:0.14)-heli.tilt)*0.1*dt;
+  heli.rot += 0.9*dt;
+
+  // fumée
+  if(Math.random()<0.5) smoke.push({x:heli.x-26,y:heli.y+6,r:3,a:.5});
+  smoke.forEach(s=>{s.x-=speed*dt;s.r+=0.25*dt;s.a-=0.015*dt;});
+  smoke=smoke.filter(s=>s.a>0);
+
+  // défilement
+  const dx=speed*dt;
+  dist+=dx;
+  scoreEl.textContent=Math.floor(dist/10);
+  terrain.forEach((c,i)=>{}); // colonnes fixes, on gère par offset
+  scroll(dx);
+
+  // difficulté progressive
+  speed=2.6+Math.min(3.2,dist/2600);
+  gapH=Math.max(H*0.30, H*0.62 - dist/90);
+
+  // blocs
+  blockTimer-=dx;
+  if(blockTimer<=0){spawnBlock();blockTimer=340+Math.random()*260;}
+  blocks.forEach(b=>b.x-=dx);
+  blocks=blocks.filter(b=>b.x+b.w>-20);
+
+  // collisions
+  const hr=13;
+  const col=colAt(heli.x);
+  if(col && (heli.y-hr<col.top || heli.y+hr>col.bot)) return crash();
+  for(const b of blocks){
+    if(heli.x+hr>b.x && heli.x-hr<b.x+b.w && heli.y+hr>b.y && heli.y-hr<b.y+b.h)
+      return crash();
+  }
+}
+
+let off=0;
+function scroll(dx){
+  off+=dx;
+  while(off>=SEG){off-=SEG;terrain.shift();terrain.push(makeCol());}
+}
+function colAt(x){
+  const i=Math.floor((x+off)/SEG);
+  return terrain[i]||null;
+}
+
+function crash(){
+  alive=false;
+  const m=Math.floor(dist/10);
+  if(m>best){best=m;bestEl.textContent=best;}
+  finTitre.textContent=m+" m";
+  finTexte.textContent = m>=400 ? "Pilote d'élite ! Le classement hebdo t'attend."
+                    : m>=180 ? "Beau vol ! Encore un effort pour entrer au classement."
+                    : "Atterrissage forcé... Redécolle et bats ton record !";
+  if(m>=400){SFX.victoire();confettiParts=confetti(cvs,ctx,W/2,H*0.35);}else{SFX.defaite();}
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Hélico',score:Math.round(m*1.1),victoire:m>=400},'*');}catch(e){}}
+  fin.style.display='flex';
+}
+
+document.getElementById('rejouer').addEventListener('click',()=>{
+  fin.style.display='none';confettiParts=[];reset();
+});
+
+// ---- Rendu ----
+function draw(){
+  // fond tunnel
+  const bg=ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#1b2a4a'); bg.addColorStop(1,'#0f1d33');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+
+  // parois (roche verte sombre)
+  ctx.fillStyle='#0A5C2D';
+  ctx.beginPath();
+  ctx.moveTo(0,0);
+  for(let i=0;i<terrain.length;i++){
+    ctx.lineTo(i*SEG-off,terrain[i].top);
+  }
+  ctx.lineTo(W+SEG,0);ctx.closePath();ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(0,H);
+  for(let i=0;i<terrain.length;i++){
+    ctx.lineTo(i*SEG-off,terrain[i].bot);
+  }
+  ctx.lineTo(W+SEG,H);ctx.closePath();ctx.fill();
+  // liseré or des parois
+  ctx.strokeStyle='rgba(245,194,27,.5)';ctx.lineWidth=2.5;
+  ctx.beginPath();
+  for(let i=0;i<terrain.length;i++){
+    const x=i*SEG-off;
+    i===0?ctx.moveTo(x,terrain[i].top):ctx.lineTo(x,terrain[i].top);
+  }
+  ctx.stroke();
+  ctx.beginPath();
+  for(let i=0;i<terrain.length;i++){
+    const x=i*SEG-off;
+    i===0?ctx.moveTo(x,terrain[i].bot):ctx.lineTo(x,terrain[i].bot);
+  }
+  ctx.stroke();
+
+  // blocs obstacles
+  for(const b of blocks){
+    ctx.fillStyle='#E32219';
+    ctx.beginPath();ctx.roundRect(b.x,b.y,b.w,b.h,5);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.18)';
+    ctx.beginPath();ctx.roundRect(b.x+3,b.y+3,5,b.h-6,3);ctx.fill();
+  }
+
+  // fumée
+  for(const s of smoke){
+    ctx.fillStyle='rgba(250,247,239,'+s.a*0.4+')';
+    ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);ctx.fill();
+  }
+
+  drawHeli();
+}
+
+function drawHeli(){
+  ctx.save();
+  ctx.translate(heli.x,heli.y);
+  ctx.rotate(heli.tilt);
+  // queue
+  ctx.strokeStyle='#F5C21B';ctx.lineWidth=5;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(-10,0);ctx.lineTo(-30,-4);ctx.stroke();
+  // rotor de queue
+  ctx.strokeStyle='#FAF7EF';ctx.lineWidth=2.5;
+  const ra=heli.rot*2;
+  ctx.beginPath();
+  ctx.moveTo(-30-Math.cos(ra)*7,-4-Math.sin(ra)*7);
+  ctx.lineTo(-30+Math.cos(ra)*7,-4+Math.sin(ra)*7);
+  ctx.stroke();
+  // cabine
+  ctx.fillStyle='#F5C21B';
+  ctx.beginPath();ctx.ellipse(0,0,16,11,0,0,7);ctx.fill();
+  // vitre
+  ctx.fillStyle='#1b2a4a';
+  ctx.beginPath();ctx.ellipse(7,-2,6,5,0,0,7);ctx.fill();
+  // bande rouge
+  ctx.fillStyle='#E32219';
+  ctx.beginPath();ctx.roundRect(-12,2,22,4,2);ctx.fill();
+  // patins
+  ctx.strokeStyle='#FAF7EF';ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.moveTo(-10,13);ctx.lineTo(12,13);ctx.moveTo(-6,11);ctx.lineTo(-6,13);ctx.moveTo(8,11);ctx.lineTo(8,13);ctx.stroke();
+  // mât + rotor principal
+  ctx.strokeStyle='#12130F';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(0,-11);ctx.lineTo(0,-15);ctx.stroke();
+  ctx.strokeStyle='rgba(250,247,239,.9)';ctx.lineWidth=3;
+  const sp=Math.cos(heli.rot)*22;
+  ctx.beginPath();ctx.moveTo(-sp,-15);ctx.lineTo(sp,-15);ctx.stroke();
+  ctx.restore();
+}
+
+// ---- Entrées ----
+function down(e){
+  pressing=true;
+  if(!started&&alive){started=true;msg.textContent="Maintiens pour monter, relâche pour descendre";}
+  e.preventDefault();
+}
+function up(e){pressing=false;e.preventDefault();}
+cvs.addEventListener('touchstart',down,{passive:false});
+cvs.addEventListener('touchend',up,{passive:false});
+cvs.addEventListener('mousedown',down);
+window.addEventListener('mouseup',up);
+window.addEventListener('keydown',e=>{if(e.code==='Space'){down(e);}});
+window.addEventListener('keyup',e=>{if(e.code==='Space'){up(e);}});
+
+// ---- Boucle ----
+let last=0;
+function loop(now){
+  const dt=Math.min(2.5,(now-last)/16.7); last=now;
+  step(dt);
+  draw();
+  if(confettiParts.length)drawConfetti(ctx,confettiParts,dt);
+  requestAnimationFrame(loop);
+}
+window.__helico={state:()=>({dist:Math.floor(dist/10),alive,confettiN:confettiParts.length,muet:SFX.estMuet()}),
+  forcerCrash:(m)=>{dist=m*10;crash();}};
+resize();reset();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

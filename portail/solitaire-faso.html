@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Solitaire Faso</title>
+<style>
+  :root{--vert:#0E7A3C;--rouge:#E32219;--or:#F5C21B;--nuit:#12130F;--craie:#FAF7EF;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:var(--nuit);font-family:"Arial Black","Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;}
+  header{width:100%;max-width:430px;padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-size:20px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial,sans-serif;font-weight:400;font-size:9px;letter-spacing:3px;color:#8b8f84;margin-top:3px;}
+  .scores{text-align:right;line-height:1.25;}
+  .scores .val{font-size:18px;color:var(--or);}
+  .scores .lbl{font-family:Arial,sans-serif;font-size:9px;letter-spacing:2px;color:#8b8f84;}
+  #barre{display:flex;gap:8px;justify-content:center;padding:0 0 4px;}
+  #barre button{background:#1d1f19;border:1px solid #2a2c24;color:#b8bbae;border-radius:999px;
+    padding:6px 16px;font-family:inherit;font-size:12px;}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;justify-content:center;padding:0 8px 4px;}
+  canvas{display:block;border-radius:12px;}
+  #fin{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,19,15,.9);text-align:center;padding:24px;border-radius:14px;}
+  #fin h2{font-size:28px;color:var(--or);margin-bottom:6px;}
+  #fin p{font-family:Arial,sans-serif;font-size:14px;color:#c9ccc0;margin-bottom:20px;line-height:1.5;}
+  #fin button{font-family:inherit;font-size:16px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:14px 34px;}
+  footer{width:100%;max-width:430px;padding:6px 16px 12px;text-align:center;
+    font-family:Arial,sans-serif;font-size:11px;color:#6c7064;letter-spacing:.5px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">SOLITAIRE <span>FASO</span><small>KLONDIKE CLASSIQUE</small></div>
+  <div style="display:flex;align-items:center;gap:0"><button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:32px;height:32px;font-size:14px;margin-right:8px">🔊</button>
+<div class="scores"><div class="val" id="score">0</div>
+  <div class="lbl">COUPS <span id="coups">0</span></div></div>
+</div>
+</header>
+<div id="barre">
+  <button id="btnNouv">🔄 Nouvelle</button>
+  <button id="btnAuto">⚡ Auto-complète</button>
+</div>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="fin"><h2 id="finTitre"></h2><p id="finTexte"></p><button id="rejouer">NOUVELLE PARTIE</button></div>
+</div>
+<footer>Tape une carte pour la déplacer · Démo VAS — classement hebdo à venir</footer>
+<script>
+(function(){
+"use strict";
+// ===== Kit sonore Faso Games (synthétisé, 0 Ko d'assets, silencieux par défaut respecté) =====
+var SFX=(function(){
+  var ctx,muet=false;
+  try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+  function ac(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();return ctx;}
+  function tone(freq,dur,type,vol,glide){
+    if(muet)return;
+    try{
+      var c=ac();var o=c.createOscillator();var g=c.createGain();
+      o.type=type||'sine';o.frequency.value=freq;
+      if(glide)o.frequency.linearRampToValueAtTime(glide,c.currentTime+dur);
+      g.gain.value=vol||0.15;
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+      o.connect(g);g.connect(c.destination);
+      o.start();o.stop(c.currentTime+dur);
+    }catch(e){}
+  }
+  return{
+    tap:function(){tone(440,0.05,'square',0.08);},
+    bon:function(){tone(523,0.09,'sine',0.14);setTimeout(function(){tone(784,0.12,'sine',0.14);},70);},
+    mauvais:function(){tone(160,0.22,'sawtooth',0.12,90);},
+    victoire:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.15);},i*90);});},
+    defaite:function(){[392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.22,'sine',0.12);},i*120);});},
+    piece:function(){tone(988,0.08,'triangle',0.12,1400);},
+    tick:function(){tone(300,0.03,'square',0.05);},
+    estMuet:function(){return muet;},
+    toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+  };
+})();
+// Bouton mute (à placer dans le header de chaque jeu)
+function initBoutonSon(id){
+  var b=document.getElementById(id);
+  if(!b)return;
+  function maj(){b.textContent=SFX.estMuet()?'🔇':'🔊';}
+  maj();
+  b.addEventListener('click',function(){SFX.toggle();maj();});
+}
+// Confetti simple (petites particules colorées, pour les écrans de victoire)
+function confetti(canvas,ctx,cx,cy){
+  var parts=[];
+  var couleurs=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<24;i++){
+    var a=Math.random()*Math.PI*2,v=2+Math.random()*3;
+    parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,g:0.12,vie:1,col:couleurs[i%couleurs.length],taille:3+Math.random()*3});
+  }
+  return parts;
+}
+function drawConfetti(ctx,parts,dt){
+  for(var i=parts.length-1;i>=0;i--){
+    var p=parts[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vie-=0.018*dt;
+    if(p.vie<=0){parts.splice(i,1);continue;}
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.taille/2,p.y-p.taille/2,p.taille,p.taille);
+    ctx.globalAlpha=1;
+  }
+}
+initBoutonSon("btnSon");
+
+const cvs=document.getElementById('c'),ctx=cvs.getContext('2d');
+const scoreEl=document.getElementById('score'),coupsEl=document.getElementById('coups');
+const fin=document.getElementById('fin'),finTitre=document.getElementById('finTitre'),finTexte=document.getElementById('finTexte');
+let W=0,H=0,DPR=1,cw=0,ch=0,gap=0,marge=0,rowGap=0;
+let confettiParts=[];
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  const r=cvs.parentElement.getBoundingClientRect();
+  W=r.width-16;H=r.height-8;
+  cvs.style.width=W+'px';cvs.style.height=H+'px';
+  cvs.width=W*DPR;cvs.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  marge=6; gap=(W-2*marge-7*0)/7; cw=gap*0.92; ch=cw*1.4; rowGap=ch*0.28;
+}
+window.addEventListener('resize',resize);
+
+// Cartes : {s:0-3 (♠♥♦♣), v:1-13, face:bool}
+const COULEURS=['♠','♥','♦','♣'];
+const rouge=s=>s===1||s===2;
+let stock, waste, fond, colonnes, score, coups, over, sel;
+
+function reset(){
+  let paquet=[];
+  for(let s=0;s<4;s++)for(let v=1;v<=13;v++)paquet.push({s,v,face:false});
+  for(let i=paquet.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[paquet[i],paquet[j]]=[paquet[j],paquet[i]];}
+  colonnes=[[],[],[],[],[],[],[]];
+  for(let c=0;c<7;c++){
+    for(let k=0;k<=c;k++){const carte=paquet.pop();carte.face=(k===c);colonnes[c].push(carte);}
+  }
+  stock=paquet;waste=[];fond=[[],[],[],[]];
+  score=0;coups=0;over=false;sel=null;
+  scoreEl.textContent='0';coupsEl.textContent='0';
+  fin.style.display='none';
+}
+function piocher(){
+  if(stock.length===0){
+    stock=waste.reverse().map(c=>({...c,face:false}));waste=[];
+  }else{
+    const c=stock.pop();c.face=true;waste.push(c);
+  }
+  coups++;coupsEl.textContent=coups;sel=null;
+}
+function peutPoserFond(carte,f){
+  if(f.length===0)return carte.v===1;
+  const top=f[f.length-1];
+  return top.s===carte.s&&carte.v===top.v+1;
+}
+function peutPoserColonne(carte,col){
+  if(col.length===0)return carte.v===13;
+  const top=col[col.length-1];
+  if(!top.face)return false;
+  return rouge(top.s)!==rouge(carte.s)&&carte.v===top.v-1;
+}
+function autoVersFond(carte,srcType,srcIdx){
+  for(let f=0;f<4;f++){
+    if(peutPoserFond(carte,fond[f])){
+      retirer(srcType,srcIdx);fond[f].push(carte);
+      score+=10;majScore();retourner(srcType,srcIdx);
+      SFX.tap();
+      verifGagne();return true;
+    }
+  }
+  return false;
+}
+function retirer(type,idx){
+  if(type==='waste')waste.pop();
+  else if(type==='col')colonnes[idx].pop();
+}
+function retourner(type,idx){
+  if(type==='col'){const col=colonnes[idx];if(col.length&&!col[col.length-1].face){col[col.length-1].face=true;score+=5;majScore();}}
+}
+function majScore(){scoreEl.textContent=score;}
+function verifGagne(){
+  if(fond.every(f=>f.length===13)){
+    over=true;
+    finTitre.textContent='🏆 GAGNÉ !';
+    finTexte.textContent="Toutes les cartes rangées en "+coups+" coups ! Le classement hebdo t'attend.";
+    SFX.victoire();confettiParts=confetti(cvs,ctx,W/2,H*0.35);
+    if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Solitaire',score:score*2,victoire:over},'*');}catch(e){}}
+  fin.style.display='flex';
+  }
+}
+document.getElementById('rejouer').addEventListener('click',()=>{confettiParts=[];reset();});
+document.getElementById('btnNouv').addEventListener('click',reset);
+document.getElementById('btnAuto').addEventListener('click',autoComplete);
+function autoComplete(){
+  let bouge=true,secu=0;
+  while(bouge&&secu<300){
+    bouge=false;secu++;
+    if(waste.length){const c=waste[waste.length-1];if(autoVersFond(c,'waste'))bouge=true;}
+    for(let i=0;i<7;i++){const col=colonnes[i];if(col.length){const c=col[col.length-1];if(c.face&&autoVersFond(c,'col',i)){bouge=true;}}}
+  }
+}
+
+// ---- Positions ----
+function posStock(){return {x:marge,y:6,w:cw,h:ch};}
+function posWaste(){return {x:marge+gap,y:6,w:cw,h:ch};}
+function posFond(f){return {x:marge+(3+f)*gap,y:6,w:cw,h:ch};}
+function posCol(c){return {x:marge+c*gap,y:6+ch+14,w:cw};}
+
+function draw(){
+  ctx.fillStyle='#0A5C2D';ctx.fillRect(0,0,W,H);
+  // stock
+  const ps=posStock();
+  emplacement(ps.x,ps.y);
+  if(stock.length)dosCarte(ps.x,ps.y);
+  else{ctx.fillStyle='rgba(250,247,239,.4)';ctx.font='18px Arial';ctx.textAlign='center';ctx.fillText('↻',ps.x+cw/2,ps.y+ch/2);}
+  // waste
+  const pw=posWaste();emplacement(pw.x,pw.y);
+  if(waste.length)carte(waste[waste.length-1],pw.x,pw.y,sel&&sel.type==='waste');
+  // fondations
+  for(let f=0;f<4;f++){
+    const pf=posFond(f);emplacement(pf.x,pf.y);
+    ctx.fillStyle='rgba(250,247,239,.25)';ctx.font=Math.round(cw*0.5)+'px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+    if(!fond[f].length)ctx.fillText(COULEURS[f],pf.x+cw/2,pf.y+ch/2);
+    else carte(fond[f][fond[f].length-1],pf.x,pf.y,false);
+  }
+  // colonnes
+  for(let c=0;c<7;c++){
+    const pc=posCol(c),col=colonnes[c];
+    if(!col.length)emplacement(pc.x,pc.y);
+    for(let i=0;i<col.length;i++){
+      const y=pc.y+i*rowGap;
+      if(!col[i].face)dosCarte(pc.x,y);
+      else carte(col[i],pc.x,y,sel&&sel.type==='col'&&sel.idx===c&&i===col.length-1);
+    }
+  }
+}
+function emplacement(x,y){
+  ctx.strokeStyle='rgba(250,247,239,.2)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.roundRect(x,y,cw,ch,6);ctx.stroke();
+}
+function dosCarte(x,y){
+  ctx.fillStyle='#3d5a80';
+  ctx.beginPath();ctx.roundRect(x,y,cw,ch,6);ctx.fill();
+  ctx.strokeStyle='#1b2a4a';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.fillStyle='rgba(245,194,27,.5)';
+  ctx.beginPath();ctx.arc(x+cw/2,y+ch/2,cw*0.22,0,7);ctx.fill();
+}
+function carte(cte,x,y,selc){
+  ctx.fillStyle='#FAF7EF';
+  ctx.beginPath();ctx.roundRect(x,y,cw,ch,6);ctx.fill();
+  ctx.strokeStyle=selc?'#F5C21B':'#c9c4b6';ctx.lineWidth=selc?3:1.2;
+  ctx.beginPath();ctx.roundRect(x,y,cw,ch,6);ctx.stroke();
+  const col=rouge(cte.s)?'#E32219':'#12130F';
+  ctx.fillStyle=col;
+  const vals=['','A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+  ctx.font='bold '+Math.round(cw*0.34)+'px Arial';ctx.textAlign='left';ctx.textBaseline='top';
+  ctx.fillText(vals[cte.v],x+4,y+3);
+  ctx.font=Math.round(cw*0.32)+'px Arial';
+  ctx.fillText(COULEURS[cte.s],x+4,y+3+cw*0.34);
+  ctx.font=Math.round(cw*0.55)+'px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(COULEURS[cte.s],x+cw/2,y+ch/2+2);
+}
+
+// ---- Interaction : tap-to-select puis tap-to-place ----
+function hit(x,y){
+  const ps=posStock();
+  if(x>=ps.x&&x<=ps.x+cw&&y>=ps.y&&y<=ps.y+ch)return {type:'stock'};
+  const pw=posWaste();
+  if(waste.length&&x>=pw.x&&x<=pw.x+cw&&y>=pw.y&&y<=pw.y+ch)return {type:'waste'};
+  for(let f=0;f<4;f++){const pf=posFond(f);if(x>=pf.x&&x<=pf.x+cw&&y>=pf.y&&y<=pf.y+ch)return {type:'fond',idx:f};}
+  for(let c=6;c>=0;c--){
+    const pc=posCol(c),col=colonnes[c];
+    const hautX=pc.x,basY=pc.y+(Math.max(0,col.length-1))*rowGap+ch;
+    if(x>=hautX&&x<=hautX+cw&&y>=pc.y&&y<=basY)return {type:'col',idx:c};
+  }
+  return null;
+}
+function tap(cx,cy){
+  if(over)return;
+  const r=cvs.getBoundingClientRect();
+  const x=cx-r.left,y=cy-r.top;
+  const h=hit(x,y);
+  if(!h){sel=null;return;}
+  if(h.type==='stock'){piocher();return;}
+  // rien de sélectionné : sélectionner une source
+  if(!sel){
+    if(h.type==='waste'&&waste.length){sel={type:'waste'};}
+    else if(h.type==='col'&&colonnes[h.idx].length&&colonnes[h.idx][colonnes[h.idx].length-1].face){sel={type:'col',idx:h.idx};}
+    else if(h.type==='fond'&&fond[h.idx].length){sel={type:'fond',idx:h.idx};}
+    return;
+  }
+  // une source est sélectionnée : tenter le déplacement vers h
+  const carteSrc=sourceCarte(sel);
+  if(!carteSrc){sel=null;return;}
+  let ok=false;
+  if(h.type==='fond'){
+    if(peutPoserFond(carteSrc,fond[h.idx])){retirerSrc(sel);fond[h.idx].push(carteSrc);score+=10;majScore();retournerSrc(sel);ok=true;verifGagne();}
+  }else if(h.type==='col'){
+    if(peutPoserColonne(carteSrc,colonnes[h.idx])){retirerSrc(sel);colonnes[h.idx].push(carteSrc);majScore();retournerSrc(sel);ok=true;}
+  }
+  if(ok){coups++;coupsEl.textContent=coups;sel=null;}
+  else{
+    // re-sélection ou double-tap vers fond auto
+    if(sel.type==='col'&&h.type==='col'&&sel.idx===h.idx){autoVersFond(carteSrc,'col',sel.idx);sel=null;}
+    else if(h.type==='waste'&&waste.length){sel={type:'waste'};}
+    else if(h.type==='col'&&colonnes[h.idx].length&&colonnes[h.idx][colonnes[h.idx].length-1].face){sel={type:'col',idx:h.idx};}
+    else sel=null;
+  }
+}
+function sourceCarte(s){
+  if(s.type==='waste')return waste[waste.length-1];
+  if(s.type==='col')return colonnes[s.idx][colonnes[s.idx].length-1];
+  if(s.type==='fond')return fond[s.idx][fond[s.idx].length-1];
+  return null;
+}
+function retirerSrc(s){
+  if(s.type==='waste')waste.pop();
+  else if(s.type==='col')colonnes[s.idx].pop();
+  else if(s.type==='fond')fond[s.idx].pop();
+}
+function retournerSrc(s){if(s.type==='col')retourner('col',s.idx);}
+
+cvs.addEventListener('touchstart',e=>{tap(e.touches[0].clientX,e.touches[0].clientY);e.preventDefault();},{passive:false});
+cvs.addEventListener('mousedown',e=>{tap(e.clientX,e.clientY);});
+window.__solit={state:()=>({over,score,coups,fond:fond.map(f=>f.length),stock:stock.length,waste:waste.length,confettiN:confettiParts.length,muet:SFX.estMuet()}),
+  pioche:piocher,auto:autoComplete,
+  forcerVictoire:()=>{fond=[13,13,13,13].map(n=>Array.from({length:n},(_,i)=>({s:0,v:i+1,face:true})));verifGagne();}};
+let last=0;
+function loop(now){
+  draw();
+  const dt=last?Math.min(2.5,(now-last)/16.7):1;last=now;
+  if(confettiParts.length)drawConfetti(ctx,confettiParts,dt);
+  requestAnimationFrame(loop);
+}
+resize();reset();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Quiz Étalons Faso</title>
+<style>
+  :root{--vert:#0E7A3C;--rouge:#E32219;--or:#F5C21B;--nuit:#12130F;--craie:#FAF7EF;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:var(--nuit);font-family:"Arial Black","Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;}
+  header{width:100%;max-width:430px;padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-size:19px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial,sans-serif;font-weight:400;font-size:9px;letter-spacing:3px;color:#8b8f84;margin-top:3px;}
+  .scores{text-align:right;line-height:1.25;}
+  .scores .val{font-size:20px;color:var(--or);}
+  .scores .lbl{font-family:Arial,sans-serif;font-size:9px;letter-spacing:2px;color:#8b8f84;}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;flex-direction:column;padding:6px 16px 10px;}
+  #barreTemps{height:6px;background:#1d1f19;border-radius:99px;overflow:hidden;margin-bottom:14px;}
+  #barreTemps>div{height:100%;background:var(--or);width:100%;transition:width .1s linear;}
+  #progress{font-family:Arial;font-size:12px;color:#8b8f84;text-align:center;margin-bottom:10px;letter-spacing:1px;}
+  #question{font-size:18px;line-height:1.35;text-align:center;margin:10px 0 20px;min-height:80px;
+    display:flex;align-items:center;justify-content:center;}
+  #reponses{display:flex;flex-direction:column;gap:11px;}
+  .rep{background:#1d1f19;border:1.5px solid #2a2c24;color:var(--craie);border-radius:12px;
+    padding:15px 16px;font-family:inherit;font-size:15px;text-align:left;transition:.15s;}
+  .rep:active{transform:scale(.98);}
+  .rep.bon{background:var(--vert);border-color:var(--vert);}
+  .rep.mauvais{background:var(--rouge);border-color:var(--rouge);}
+  .rep:disabled{opacity:.9;}
+  #fin{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,19,15,.92);text-align:center;padding:24px;}
+  #fin h2{font-size:34px;color:var(--or);margin-bottom:4px;}
+  #fin .sub{font-family:Arial;font-size:15px;color:#c9ccc0;margin-bottom:8px;}
+  #fin p{font-family:Arial;font-size:14px;color:#c9ccc0;margin-bottom:20px;line-height:1.5;}
+  #fin button{font-family:inherit;font-size:16px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:14px 34px;}
+  footer{width:100%;max-width:430px;padding:6px 16px 12px;text-align:center;
+    font-family:Arial,sans-serif;font-size:11px;color:#6c7064;letter-spacing:.5px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">QUIZ ÉTALONS <span>FASO</span><small>SPÉCIAL FOOT &amp; CAN</small></div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:32px;height:32px;font-size:14px">🔊</button>
+    <div class="scores"><div class="val" id="score">0</div>
+    <div class="lbl">SÉRIE <span id="serie">0</span> 🔥</div></div>
+  </div>
+</header>
+<div id="wrap">
+  <div id="barreTemps"><div id="jauge"></div></div>
+  <div id="progress">Question 1 / 10</div>
+  <div id="question"></div>
+  <div id="reponses"></div>
+  <div id="fin">
+    <h2 id="finScore"></h2>
+    <div class="sub" id="finSub"></div>
+    <p id="finTexte"></p>
+    <button id="rejouer">REJOUER</button>
+  </div>
+</div>
+<footer>Nouvelles questions chaque semaine · Démo VAS — classement hebdo à venir</footer>
+<script>
+(function(){
+"use strict";
+// ===== Kit sonore Faso Games (synthétisé, 0 Ko d'assets, silencieux par défaut respecté) =====
+var SFX=(function(){
+  var ctx,muet=false;
+  try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+  function ac(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();return ctx;}
+  function tone(freq,dur,type,vol,glide){
+    if(muet)return;
+    try{
+      var c=ac();var o=c.createOscillator();var g=c.createGain();
+      o.type=type||'sine';o.frequency.value=freq;
+      if(glide)o.frequency.linearRampToValueAtTime(glide,c.currentTime+dur);
+      g.gain.value=vol||0.15;
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+      o.connect(g);g.connect(c.destination);
+      o.start();o.stop(c.currentTime+dur);
+    }catch(e){}
+  }
+  return{
+    tap:function(){tone(440,0.05,'square',0.08);},
+    bon:function(){tone(523,0.09,'sine',0.14);setTimeout(function(){tone(784,0.12,'sine',0.14);},70);},
+    mauvais:function(){tone(160,0.22,'sawtooth',0.12,90);},
+    victoire:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.15);},i*90);});},
+    defaite:function(){[392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.22,'sine',0.12);},i*120);});},
+    piece:function(){tone(988,0.08,'triangle',0.12,1400);},
+    tick:function(){tone(300,0.03,'square',0.05);},
+    estMuet:function(){return muet;},
+    toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+  };
+})();
+// Bouton mute (à placer dans le header de chaque jeu)
+function initBoutonSon(id){
+  var b=document.getElementById(id);
+  if(!b)return;
+  function maj(){b.textContent=SFX.estMuet()?'🔇':'🔊';}
+  maj();
+  b.addEventListener('click',function(){SFX.toggle();maj();});
+}
+// Confetti simple (petites particules colorées, pour les écrans de victoire)
+function confetti(canvas,ctx,cx,cy){
+  var parts=[];
+  var couleurs=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<24;i++){
+    var a=Math.random()*Math.PI*2,v=2+Math.random()*3;
+    parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,g:0.12,vie:1,col:couleurs[i%couleurs.length],taille:3+Math.random()*3});
+  }
+  return parts;
+}
+function drawConfetti(ctx,parts,dt){
+  for(var i=parts.length-1;i>=0;i--){
+    var p=parts[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vie-=0.018*dt;
+    if(p.vie<=0){parts.splice(i,1);continue;}
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.taille/2,p.y-p.taille/2,p.taille,p.taille);
+    ctx.globalAlpha=1;
+  }
+}
+initBoutonSon("btnSon");
+const scoreEl=document.getElementById('score'),serieEl=document.getElementById('serie');
+const jauge=document.getElementById('jauge'),progress=document.getElementById('progress');
+const questionEl=document.getElementById('question'),reponsesEl=document.getElementById('reponses');
+const fin=document.getElementById('fin'),finScore=document.getElementById('finScore'),
+      finSub=document.getElementById('finSub'),finTexte=document.getElementById('finTexte');
+
+// Banque de questions (foot burkinabè, africain, CAN, Étalons)
+const BANQUE=[
+  {q:"Quel est le surnom de l'équipe nationale de football du Burkina Faso ?",r:["Les Étalons","Les Lions","Les Éléphants","Les Aigles"],b:0},
+  {q:"En quelle année le Burkina Faso a-t-il atteint la finale de la CAN ?",r:["2013","2010","2017","2004"],b:0},
+  {q:"Dans quel pays s'est déroulée la CAN 2013, finale des Étalons ?",r:["Afrique du Sud","Gabon","Égypte","Ghana"],b:0},
+  {q:"Quel attaquant burkinabè a marqué de nombreux buts pour les Étalons dans les années 2010 ?",r:["Aristide Bancé","Didier Drogba","Sadio Mané","Asamoah Gyan"],b:0},
+  {q:"Combien de joueurs composent une équipe de football sur le terrain ?",r:["11","10","12","9"],b:0},
+  {q:"Quelle nation a remporté le plus de Coupes d'Afrique des Nations ?",r:["Égypte","Cameroun","Ghana","Nigeria"],b:0},
+  {q:"Comment appelle-t-on l'arrêt d'un penalty par le gardien ?",r:["Un arrêt","Un tacle","Une passe","Un corner"],b:0},
+  {q:"En quelle année le Burkina Faso a-t-il organisé la CAN ?",r:["1998","2002","1988","2010"],b:0},
+  {q:"Quel pays a remporté la CAN 2023 (jouée début 2024) ?",r:["Côte d'Ivoire","Nigeria","Sénégal","Maroc"],b:0},
+  {q:"Combien de temps dure un match de football réglementaire ?",r:["90 minutes","80 minutes","100 minutes","60 minutes"],b:0},
+  {q:"Quel est le nom du stade national à Ouagadougou ?",r:["Stade du 4-Août","Stade Félix-Houphouët","Stade de l'Amitié","Stade Omnisport"],b:0},
+  {q:"Quelle sélection a éliminé le Burkina en demi-finale de la CAN 2017 ?",r:["Égypte","Cameroun","Ghana","Sénégal"],b:0},
+  {q:"Que reçoit un joueur après deux cartons jaunes dans un match ?",r:["Un carton rouge","Un penalty","Un avertissement","Rien"],b:0},
+  {q:"Quel pays voisin du Burkina a gagné la CAN 2015 ?",r:["Côte d'Ivoire","Mali","Ghana","Niger"],b:0},
+  {q:"Le Ballon d'Or africain récompense chaque année :",r:["Le meilleur joueur","Le meilleur club","Le meilleur stade","La meilleure ville"],b:0},
+];
+
+let questions, idx, score, serie, timer, tempsRestant, repondu;
+const DUREE=12; // secondes par question
+
+function melange(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function reset(){
+  questions=melange(BANQUE).slice(0,10).map(q=>{
+    // mélanger les réponses en gardant l'index de la bonne
+    const paire=q.r.map((txt,i)=>({txt,bon:i===q.b}));
+    const mel=melange(paire);
+    return {q:q.q,reps:mel,bonIdx:mel.findIndex(x=>x.bon)};
+  });
+  idx=0;score=0;serie=0;
+  scoreEl.textContent='0';serieEl.textContent='0';
+  fin.style.display='none';
+  afficher();
+}
+function afficher(){
+  const cur=questions[idx];
+  repondu=false;
+  progress.textContent='Question '+(idx+1)+' / 10';
+  questionEl.textContent=cur.q;
+  reponsesEl.innerHTML='';
+  cur.reps.forEach((r,i)=>{
+    const btn=document.createElement('button');
+    btn.className='rep';btn.textContent=r.txt;
+    btn.addEventListener('click',()=>repondre(i,btn));
+    reponsesEl.appendChild(btn);
+  });
+  // chrono
+  tempsRestant=DUREE;
+  jauge.style.width='100%';
+  clearInterval(timer);
+  timer=setInterval(()=>{
+    tempsRestant-=0.1;
+    jauge.style.width=Math.max(0,tempsRestant/DUREE*100)+'%';
+    jauge.style.background=tempsRestant<3?'#E32219':'#F5C21B';
+    if(tempsRestant<=0)tempsEcoule();
+  },100);
+}
+function tempsEcoule(){
+  if(repondu)return;
+  repondu=true;clearInterval(timer);
+  const cur=questions[idx];
+  serie=0;serieEl.textContent='0';
+  SFX.mauvais();
+  [...reponsesEl.children].forEach((b,i)=>{
+    b.disabled=true;
+    if(i===cur.bonIdx)b.classList.add('bon');
+  });
+  setTimeout(suivante,1400);
+}
+function repondre(i,btn){
+  if(repondu)return;
+  repondu=true;clearInterval(timer);
+  const cur=questions[idx];
+  [...reponsesEl.children].forEach(b=>b.disabled=true);
+  if(i===cur.bonIdx){
+    btn.classList.add('bon');
+    const bonus=Math.round(tempsRestant*5); // rapidité récompensée
+    const pts=100+bonus;
+    score+=pts;serie++;
+    scoreEl.textContent=score;serieEl.textContent=serie;
+    SFX.bon();
+    if(serie>=3)questionEl.textContent='🔥 Série de '+serie+' ! +'+pts+' pts';
+  }else{
+    btn.classList.add('mauvais');
+    reponsesEl.children[cur.bonIdx].classList.add('bon');
+    serie=0;serieEl.textContent='0';
+    SFX.mauvais();
+  }
+  setTimeout(suivante,1400);
+}
+function suivante(){
+  idx++;
+  if(idx>=questions.length)return terminer();
+  afficher();
+}
+function domConfetti(){
+  const colors=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(let i=0;i<28;i++){
+    const el=document.createElement('div');
+    const size=4+Math.random()*4;
+    el.style.cssText='position:fixed;z-index:60;pointer-events:none;border-radius:2px;';
+    el.style.width=size+'px';el.style.height=size+'px';
+    el.style.background=colors[i%colors.length];
+    el.style.left=(window.innerWidth/2+(Math.random()-0.5)*60)+'px';
+    el.style.top='38%';
+    document.body.appendChild(el);
+    const dx=(Math.random()-0.5)*260, dy=200+Math.random()*220, rot=Math.random()*720-360;
+    const dur=900+Math.random()*500;
+    el.animate([
+      {transform:'translate(0,0) rotate(0deg)',opacity:1},
+      {transform:'translate('+dx+'px,'+dy+'px) rotate('+rot+'deg)',opacity:0}
+    ],{duration:dur,easing:'cubic-bezier(.25,.46,.45,.94)'});
+    setTimeout(()=>el.remove(),dur+50);
+  }
+}
+function terminer(){
+  clearInterval(timer);
+  const bonnes=Math.round(score/100); // approx pour le message
+  finScore.textContent=score+' pts';
+  const note=score>=1000?'🏆':score>=600?'⭐':'⚽';
+  finSub.textContent=note+' '+(score>=1000?'Expert des Étalons !':score>=600?'Bon supporter !':'Continue à suivre le foot !');
+  finTexte.textContent=score>=1000?"Tu connais tes classiques ! Le classement hebdo t'attend."
+    :score>=600?"Beau score ! Réponds plus vite pour grimper au classement."
+    :"Révise tes Étalons et reviens tenter le haut du classement !";
+  if(score>=1000){SFX.victoire();domConfetti();}else if(score<400){SFX.defaite();}
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Quiz Étalons',score:score,victoire:score>=600},'*');}catch(e){}}
+  fin.style.display='flex';
+}
+document.getElementById('rejouer').addEventListener('click',reset);
+
+window.__quiz={state:()=>({idx,score,serie,repondu,muet:SFX.estMuet()}),
+  repondreBon:()=>{const cur=questions[idx];const b=reponsesEl.children[cur.bonIdx];if(b&&!repondu)repondre(cur.bonIdx,b);},
+  repondreMauvais:()=>{const cur=questions[idx];const i=cur.bonIdx===0?1:0;const b=reponsesEl.children[i];if(b&&!repondu)repondre(i,b);}};
+
+reset();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Dames Faso</title>
+<style>
+  :root{
+    --vert:#0E7A3C; --vert-fonce:#0A5C2D; --rouge:#E32219; --or:#F5C21B;
+    --nuit:#12130F; --craie:#FAF7EF;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    background:var(--nuit);
+    font-family:"Arial Black","Segoe UI",Arial,sans-serif;
+    color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;
+    overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;
+  }
+  header{
+    width:100%;max-width:430px;padding:12px 16px 8px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .logo{font-size:20px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial,sans-serif;font-weight:400;font-size:9px;letter-spacing:3px;color:#8b8f84;margin-top:3px;}
+  .marque{display:flex;align-items:center;gap:8px;font-size:22px;}
+  .marque .toi{color:var(--or);}
+  .marque .sep{color:#57594f;font-size:16px;}
+  .marque .ia{color:#c9ccc0;}
+  #msg{height:26px;font-size:14px;letter-spacing:.5px;text-align:center;color:var(--or);}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;justify-content:center;padding:0 12px 4px;}
+  canvas{display:block;border-radius:14px;}
+  #fin{
+    position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,19,15,.88);text-align:center;padding:24px;border-radius:14px;
+  }
+  #fin h2{font-size:30px;color:var(--or);margin-bottom:6px;}
+  #fin p{font-family:Arial,sans-serif;font-size:14px;color:#c9ccc0;margin-bottom:20px;line-height:1.5;}
+  #fin button{
+    font-family:inherit;font-size:16px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:14px 34px;
+  }
+  #fin button:active{transform:scale(.96);}
+  footer{
+    width:100%;max-width:430px;padding:8px 16px 14px;text-align:center;
+    font-family:Arial,sans-serif;font-size:11px;color:#6c7064;letter-spacing:.5px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DAMES <span>FASO</span><small>RÈGLES INTERNATIONALES 10×10</small></div>
+  <div style="display:flex;align-items:center;gap:0"><button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:32px;height:32px;font-size:14px;margin-right:8px">🔊</button>
+<div class="marque"><span class="toi" id="sToi">20</span><span class="sep">—</span><span class="ia" id="sIa">20</span></div>
+</div>
+</header>
+<div id="msg">Touche un de tes pions dorés pour jouer</div>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="fin">
+    <h2 id="finTitre"></h2>
+    <p id="finTexte"></p>
+    <button id="rejouer">REJOUER</button>
+  </div>
+</div>
+<footer>Démo VAS — classement hebdo &amp; lots airtime à venir</footer>
+
+<script>
+(function(){
+"use strict";
+// ===== Kit sonore Faso Games (synthétisé, 0 Ko d'assets, silencieux par défaut respecté) =====
+var SFX=(function(){
+  var ctx,muet=false;
+  try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+  function ac(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();return ctx;}
+  function tone(freq,dur,type,vol,glide){
+    if(muet)return;
+    try{
+      var c=ac();var o=c.createOscillator();var g=c.createGain();
+      o.type=type||'sine';o.frequency.value=freq;
+      if(glide)o.frequency.linearRampToValueAtTime(glide,c.currentTime+dur);
+      g.gain.value=vol||0.15;
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+      o.connect(g);g.connect(c.destination);
+      o.start();o.stop(c.currentTime+dur);
+    }catch(e){}
+  }
+  return{
+    tap:function(){tone(440,0.05,'square',0.08);},
+    bon:function(){tone(523,0.09,'sine',0.14);setTimeout(function(){tone(784,0.12,'sine',0.14);},70);},
+    mauvais:function(){tone(160,0.22,'sawtooth',0.12,90);},
+    victoire:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.15);},i*90);});},
+    defaite:function(){[392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.22,'sine',0.12);},i*120);});},
+    piece:function(){tone(988,0.08,'triangle',0.12,1400);},
+    tick:function(){tone(300,0.03,'square',0.05);},
+    estMuet:function(){return muet;},
+    toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+  };
+})();
+// Bouton mute (à placer dans le header de chaque jeu)
+function initBoutonSon(id){
+  var b=document.getElementById(id);
+  if(!b)return;
+  function maj(){b.textContent=SFX.estMuet()?'🔇':'🔊';}
+  maj();
+  b.addEventListener('click',function(){SFX.toggle();maj();});
+}
+// Confetti simple (petites particules colorées, pour les écrans de victoire)
+function confetti(canvas,ctx,cx,cy){
+  var parts=[];
+  var couleurs=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<24;i++){
+    var a=Math.random()*Math.PI*2,v=2+Math.random()*3;
+    parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,g:0.12,vie:1,col:couleurs[i%couleurs.length],taille:3+Math.random()*3});
+  }
+  return parts;
+}
+function drawConfetti(ctx,parts,dt){
+  for(var i=parts.length-1;i>=0;i--){
+    var p=parts[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vie-=0.018*dt;
+    if(p.vie<=0){parts.splice(i,1);continue;}
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.taille/2,p.y-p.taille/2,p.taille,p.taille);
+    ctx.globalAlpha=1;
+  }
+}
+initBoutonSon("btnSon");
+
+// Plateau 10x10. board[r][c] : 0 vide, 1 pion joueur, 2 dame joueur, -1 pion IA, -2 dame IA
+// Joueur en bas (rangées 6-9), avance vers le haut. Cases jouables : (r+c)%2===1
+const N=10;
+const cvs=document.getElementById('c'), ctx=cvs.getContext('2d');
+const sToi=document.getElementById('sToi'), sIa=document.getElementById('sIa');
+const msg=document.getElementById('msg');
+const fin=document.getElementById('fin'), finTitre=document.getElementById('finTitre'),
+      finTexte=document.getElementById('finTexte');
+let W=0,H=0,DPR=1, S=0, ox=0, oy=0, cell=0;
+let confettiParts=[];
+
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  const r=cvs.parentElement.getBoundingClientRect();
+  W=r.width-24; H=r.height-8;
+  cvs.style.width=W+'px'; cvs.style.height=H+'px';
+  cvs.width=W*DPR; cvs.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  S=Math.min(W-8,H-8); cell=S/N;
+  ox=(W-S)/2; oy=(H-S)/2;
+}
+window.addEventListener('resize',resize);
+
+// ---- État ----
+let board, phase, legal, sel=null, path=[], jumpedSoFar=[], flash=[], flashT=0;
+
+function reset(){
+  board=Array.from({length:N},()=>new Array(N).fill(0));
+  for(let r=0;r<4;r++)for(let c=0;c<N;c++)if((r+c)%2===1)board[r][c]=-1;
+  for(let r=6;r<N;r++)for(let c=0;c<N;c++)if((r+c)%2===1)board[r][c]=1;
+  phase='player'; sel=null; path=[]; jumpedSoFar=[]; flash=[];
+  updateScores();
+  legal=allMoves(board,1);
+  msg.textContent="Touche un de tes pions dorés pour jouer";
+}
+
+function updateScores(){
+  let t=0,i=0;
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    if(board[r][c]>0)t++; else if(board[r][c]<0)i++;
+  }
+  sToi.textContent=t; sIa.textContent=i;
+  return {t,i};
+}
+
+// ---- Génération des coups ----
+const DIRS=[[-1,-1],[-1,1],[1,-1],[1,1]];
+function inB(r,c){return r>=0&&r<N&&c>=0&&c<N;}
+function side(v){return v>0?1:v<0?-1:0;}
+
+// séquences de prise (rafles) — les pièces sautées restent comme obstacles morts
+function captureSeqs(bd, r, c, piece, dead){
+  const s=side(piece), isKing=Math.abs(piece)===2;
+  const seqs=[];
+  for(const [dr,dc] of DIRS){
+    if(isKing){
+      // dame volante : avancer sur cases vides, sauter la 1re pièce ennemie non morte
+      let rr=r+dr, cc=c+dc;
+      while(inB(rr,cc)&&bd[rr][cc]===0&&!dead.some(d=>d[0]===rr&&d[1]===cc)){rr+=dr;cc+=dc;}
+      if(!inB(rr,cc))continue;
+      if(side(bd[rr][cc])!==-s)continue;
+      if(dead.some(d=>d[0]===rr&&d[1]===cc))continue;
+      const jr=rr, jc=cc;
+      let lr=rr+dr, lc=cc+dc;
+      while(inB(lr,lc)&&bd[lr][lc]===0&&!dead.some(d=>d[0]===lr&&d[1]===lc)){
+        const nd=dead.concat([[jr,jc]]);
+        const sub=captureSeqs(bd, lr, lc, piece, nd);
+        if(sub.length===0) seqs.push([{to:[lr,lc], j:[jr,jc]}]);
+        else for(const sq of sub) seqs.push([{to:[lr,lc], j:[jr,jc]}].concat(sq));
+        lr+=dr;lc+=dc;
+      }
+    }else{
+      const jr=r+dr, jc=c+dc, lr=r+2*dr, lc=c+2*dc;
+      if(!inB(lr,lc))continue;
+      if(side(bd[jr][jc])!==-s)continue;
+      if(dead.some(d=>d[0]===jr&&d[1]===jc))continue;
+      if(bd[lr][lc]!==0||dead.some(d=>d[0]===lr&&d[1]===lc))continue;
+      const nd=dead.concat([[jr,jc]]);
+      const sub=captureSeqs(bd, lr, lc, piece, nd);
+      if(sub.length===0) seqs.push([{to:[lr,lc], j:[jr,jc]}]);
+      else for(const sq of sub) seqs.push([{to:[lr,lc], j:[jr,jc]}].concat(sq));
+    }
+  }
+  return seqs;
+}
+
+function allMoves(bd, s){
+  let caps=[];
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    const v=bd[r][c];
+    if(side(v)!==s)continue;
+    // la case d'origine devient libre pendant la rafle
+    const saved=bd[r][c]; bd[r][c]=0;
+    const seqs=captureSeqs(bd,r,c,saved,[]);
+    bd[r][c]=saved;
+    for(const sq of seqs)caps.push({from:[r,c],steps:sq,piece:saved});
+  }
+  if(caps.length>0){
+    // règle de la prise majoritaire
+    const max=Math.max(...caps.map(m=>m.steps.length));
+    return caps.filter(m=>m.steps.length===max);
+  }
+  // coups simples
+  const moves=[];
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    const v=bd[r][c];
+    if(side(v)!==s)continue;
+    if(Math.abs(v)===2){
+      for(const [dr,dc] of DIRS){
+        let rr=r+dr,cc=c+dc;
+        while(inB(rr,cc)&&bd[rr][cc]===0){
+          moves.push({from:[r,c],steps:[{to:[rr,cc],j:null}],piece:v});
+          rr+=dr;cc+=dc;
+        }
+      }
+    }else{
+      const fw = s===1 ? -1 : 1; // joueur monte, IA descend
+      for(const dc of [-1,1]){
+        const rr=r+fw, cc=c+dc;
+        if(inB(rr,cc)&&bd[rr][cc]===0)
+          moves.push({from:[r,c],steps:[{to:[rr,cc],j:null}],piece:v});
+      }
+    }
+  }
+  return moves;
+}
+
+function applyMove(bd, m){
+  const [r0,c0]=m.from;
+  let piece=bd[r0][c0];
+  bd[r0][c0]=0;
+  const removed=[];
+  let r=r0,c=c0;
+  for(const st of m.steps){
+    [r,c]=st.to;
+    if(st.j)removed.push(st.j);
+  }
+  for(const [jr,jc] of removed)bd[jr][jc]=0;
+  // promotion : uniquement si le coup se TERMINE sur la dernière rangée
+  const s=side(piece);
+  if(Math.abs(piece)===1&&((s===1&&r===0)||(s===-1&&r===N-1)))piece=2*s;
+  bd[r][c]=piece;
+  return removed;
+}
+
+// ---- IA : minimax alpha-beta ----
+function evalBoard(bd){
+  let v=0;
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    const p=bd[r][c];
+    if(p===0)continue;
+    const s=side(p);
+    let val=Math.abs(p)===2?3.2:1;
+    // légère prime d'avancement pour les pions
+    if(Math.abs(p)===1)val+=0.03*(s===1?(N-1-r):r);
+    v+= s===-1 ? val : -val; // IA maximise
+  }
+  return v;
+}
+
+function clone(bd){return bd.map(row=>row.slice());}
+
+function minimax(bd, s, depth, alpha, beta){
+  const moves=allMoves(bd,s);
+  if(moves.length===0) return s===-1 ? -500-depth : 500+depth; // camp bloqué = perdu
+  if(depth===0) return evalBoard(bd);
+  if(s===-1){
+    let best=-Infinity;
+    for(const m of moves){
+      const nb=clone(bd); applyMove(nb,m);
+      const v=minimax(nb,1,depth-1,alpha,beta);
+      best=Math.max(best,v);alpha=Math.max(alpha,v);
+      if(beta<=alpha)break;
+    }
+    return best;
+  }else{
+    let best=Infinity;
+    for(const m of moves){
+      const nb=clone(bd); applyMove(nb,m);
+      const v=minimax(nb,-1,depth-1,alpha,beta);
+      best=Math.min(best,v);beta=Math.min(beta,v);
+      if(beta<=alpha)break;
+    }
+    return best;
+  }
+}
+
+function aiPlay(){
+  const moves=allMoves(board,-1);
+  if(moves.length===0)return endGame(true);
+  let best=-Infinity,choice=moves[0];
+  const depth=moves.length>12?4:5;
+  for(const m of moves){
+    const nb=clone(board); applyMove(nb,m);
+    const v=minimax(nb,1,depth-1,-Infinity,Infinity)+Math.random()*0.05;
+    if(v>best){best=v;choice=m;}
+  }
+  const removed=applyMove(board,choice);
+  if(removed.length>0){
+    flash=removed.slice();flashT=26;
+    msg.textContent="😤 L'IA prend "+removed.length+" pièce"+(removed.length>1?"s":"")+" !";
+    SFX.mauvais();
+  }else{
+    msg.textContent="À toi de jouer";
+  }
+  afterMove(1);
+}
+
+function afterMove(nextSide){
+  const {t,i}=updateScores();
+  if(t===0)return endGame(false);
+  if(i===0)return endGame(true);
+  legal=allMoves(board,nextSide);
+  if(legal.length===0)return endGame(nextSide===-1); // bloqué = perdu
+  if(nextSide===1){
+    phase='player';
+    if(legal[0].steps[0].j)msg.textContent="⚠️ Prise obligatoire !";
+  }else{
+    phase='ai';
+    setTimeout(aiPlay, 550);
+  }
+}
+
+function endGame(gagne){
+  phase='over';
+  const {t,i}=updateScores();
+  finTitre.textContent=t+" — "+i;
+  finTexte.textContent = gagne
+    ? "Victoire ! Un vrai damiste. Le classement hebdo t'attend."
+    : "L'IA a été plus fine cette fois... Attention aux rafles, et prends ta revanche !";
+  if(gagne){SFX.victoire();confettiParts=confetti(cvs,ctx,W/2,H*0.4);}else{SFX.defaite();}
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Dames',score:(gagne?500:120),victoire:gagne},'*');}catch(e){}}
+  fin.style.display='flex';
+}
+
+document.getElementById('rejouer').addEventListener('click',()=>{
+  fin.style.display='none';confettiParts=[];reset();
+});
+
+// ---- Interaction joueur (rafles pas à pas) ----
+function candidates(){
+  // séquences compatibles avec la sélection et le chemin déjà parcouru
+  return legal.filter(m=>{
+    if(!sel||m.from[0]!==sel[0]||m.from[1]!==sel[1])return false;
+    for(let k=0;k<path.length;k++){
+      if(m.steps[k].to[0]!==path[k][0]||m.steps[k].to[1]!==path[k][1])return false;
+    }
+    return true;
+  });
+}
+function nextTargets(){
+  const k=path.length, tg=[];
+  for(const m of candidates()){
+    if(m.steps.length>k){
+      const t=m.steps[k].to;
+      if(!tg.some(x=>x[0]===t[0]&&x[1]===t[1]))tg.push(t);
+    }
+  }
+  return tg;
+}
+
+function tap(clientX,clientY){
+  if(phase!=='player')return;
+  const rct=cvs.getBoundingClientRect();
+  const x=clientX-rct.left, y=clientY-rct.top;
+  const c=Math.floor((x-ox)/cell), r=Math.floor((y-oy)/cell);
+  if(!inB(r,c))return;
+
+  // sélection d'un pion (autorisé seulement si aucune étape de rafle entamée)
+  if(path.length===0 && board[r][c]>0 && legal.some(m=>m.from[0]===r&&m.from[1]===c)){
+    sel=[r,c]; path=[]; jumpedSoFar=[];
+    return;
+  }
+  if(!sel)return;
+
+  // clic sur une destination possible
+  const tg=nextTargets();
+  if(tg.some(t=>t[0]===r&&t[1]===c)){
+    path.push([r,c]);
+    const cands=candidates();
+    const k=path.length;
+    // pièce jumpée à cette étape (pour l'affichage)
+    const st=cands[0].steps[k-1];
+    if(st.j)jumpedSoFar.push(st.j);
+    // séquence terminée ?
+    const done=cands.every(m=>m.steps.length===k);
+    if(done){
+      const move=cands.find(m=>m.steps.length===k);
+      const removed=applyMove(board,move);
+      if(removed.length>0){flash=removed.slice();flashT=26;
+        msg.textContent="✨ Belle prise de "+removed.length+" pièce"+(removed.length>1?"s":"")+" !";SFX.bon();}
+      sel=null;path=[];jumpedSoFar=[];
+      afterMove(-1);
+    }else{
+      msg.textContent="La rafle continue... choisis la suite !";
+    }
+    return;
+  }
+  // clic ailleurs : désélection (si pas de rafle entamée)
+  if(path.length===0){sel=null;}
+}
+cvs.addEventListener('touchstart',e=>{tap(e.touches[0].clientX,e.touches[0].clientY);e.preventDefault();},{passive:false});
+cvs.addEventListener('mousedown',e=>{tap(e.clientX,e.clientY);});
+
+// ---- Rendu ----
+function draw(dt){
+  if(flashT>0)flashT-=dt;
+  ctx.fillStyle='#12130F';
+  ctx.fillRect(0,0,W,H);
+  // cadre bois
+  ctx.fillStyle='#6e4525';
+  ctx.beginPath();ctx.roundRect(ox-8,oy-8,S+16,S+16,10);ctx.fill();
+
+  const tg=phase==='player'&&sel?nextTargets():[];
+  const jouables=phase==='player'&&path.length===0
+    ? legal.map(m=>m.from) : [];
+
+  // position virtuelle du pion en cours de rafle
+  const virt = sel&&path.length>0 ? path[path.length-1] : sel;
+
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    const x=ox+c*cell, y=oy+r*cell;
+    const dark=(r+c)%2===1;
+    ctx.fillStyle=dark?'#3d2713':'#c9b797';
+    ctx.fillRect(x,y,cell,cell);
+
+    if(!dark)continue;
+
+    // surbrillances
+    if(jouables.some(p=>p[0]===r&&p[1]===c)){
+      ctx.strokeStyle='rgba(245,194,27,.55)';ctx.lineWidth=2;
+      ctx.strokeRect(x+2,y+2,cell-4,cell-4);
+    }
+    if(tg.some(t=>t[0]===r&&t[1]===c)){
+      ctx.fillStyle='rgba(245,194,27,.30)';
+      ctx.fillRect(x,y,cell,cell);
+      ctx.fillStyle='#F5C21B';
+      ctx.beginPath();ctx.arc(x+cell/2,y+cell/2,cell*0.12,0,7);ctx.fill();
+    }
+    const estFlash=flash.some(f=>f[0]===r&&f[1]===c)&&flashT>0&&Math.floor(flashT/5)%2===0;
+    if(estFlash){
+      ctx.fillStyle='rgba(227,34,25,.5)';
+      ctx.fillRect(x,y,cell,cell);
+    }
+
+    let v=board[r][c];
+    // pendant une rafle : masquer la case d'origine, afficher le pion en position virtuelle
+    if(sel&&path.length>0){
+      if(r===sel[0]&&c===sel[1])v=0;
+    }
+    const estJumped=jumpedSoFar.some(j=>j[0]===r&&j[1]===c);
+    if(v!==0)drawPiece(x+cell/2,y+cell/2,v,
+      sel&&r===sel[0]&&c===sel[1]&&path.length===0, estJumped);
+  }
+  // pion virtuel pendant la rafle
+  if(sel&&path.length>0){
+    const [vr,vc]=virt;
+    const pv=board[sel[0]][sel[1]];
+    drawPiece(ox+vc*cell+cell/2, oy+vr*cell+cell/2, pv, true, false);
+  }
+}
+
+function drawPiece(px,py,v,selected,faded){
+  const R=cell*0.38;
+  ctx.save();
+  if(faded)ctx.globalAlpha=0.35;
+  // ombre
+  ctx.fillStyle='rgba(0,0,0,.35)';
+  ctx.beginPath();ctx.arc(px+1.5,py+2.5,R,0,7);ctx.fill();
+  // corps
+  const joueur=v>0;
+  ctx.fillStyle=joueur?'#F5C21B':'#2a2c24';
+  ctx.beginPath();ctx.arc(px,py,R,0,7);ctx.fill();
+  ctx.strokeStyle=joueur?'#E32219':'#8b8f84';
+  ctx.lineWidth=2.5;ctx.stroke();
+  // anneau interne
+  ctx.strokeStyle=joueur?'rgba(227,34,25,.5)':'rgba(250,247,239,.25)';
+  ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(px,py,R*0.62,0,7);ctx.stroke();
+  // couronne des dames
+  if(Math.abs(v)===2){
+    ctx.fillStyle=joueur?'#E32219':'#F5C21B';
+    ctx.font='bold '+Math.round(R*0.95)+'px Arial';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('★',px,py+1);
+  }
+  if(selected){
+    ctx.strokeStyle='#FAF7EF';ctx.lineWidth=2.5;
+    ctx.setLineDash([5,4]);
+    ctx.beginPath();ctx.arc(px,py,R+4,0,7);ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  ctx.restore();
+}
+
+// ---- Boucle ----
+let last=0;
+function loop(now){
+  const dt=Math.min(2.5,(now-last)/16.7); last=now;
+  draw(dt);
+  if(confettiParts.length)drawConfetti(ctx,confettiParts,dt);
+  requestAnimationFrame(loop);
+}
+window.__dames={state:()=>({phase,confettiN:confettiParts.length,muet:SFX.estMuet()}),
+  forcerVictoire:()=>endGame(true)};
+resize();reset();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

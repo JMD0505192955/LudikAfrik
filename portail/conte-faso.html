@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Le Conte du Soir</title>
+<style>
+  :root{--vert:#0E7A3C;--rouge:#E32219;--or:#F5C21B;--nuit:#12130F;--craie:#FAF7EF;
+        --nuit2:#1a1524;--violet:#3d2a52;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:linear-gradient(180deg,#1a1524 0%,#241a2e 55%,#2e2028 100%);
+    font-family:"Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;
+    user-select:none;-webkit-user-select:none;}
+  header{width:100%;max-width:430px;padding:10px 14px 6px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-family:"Arial Black";font-size:16px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-weight:400;font-size:8.5px;letter-spacing:2.5px;color:#9a8fa8;margin-top:3px;}
+  .hud{display:flex;align-items:center;gap:10px;font-size:13px;}
+  .hud .val{color:var(--or);font-family:"Arial Black";}
+  #serieBox{width:100%;max-width:430px;padding:0 14px 6px;}
+  #serieBar{display:flex;gap:4px;}
+  .jour{flex:1;height:26px;border-radius:7px;background:#241a30;border:1.5px solid #382a48;
+    display:flex;align-items:center;justify-content:center;font-size:10px;color:#8a7f9a;}
+  .jour.fait{background:rgba(245,194,27,.18);border-color:var(--or);color:var(--or);}
+  .jour.auj{background:var(--or);border-color:var(--or);color:var(--nuit);font-weight:bold;
+    box-shadow:0 0 12px rgba(245,194,27,.4);}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;overflow-y:auto;padding:0 14px 14px;}
+  /* --- scène illustrée --- */
+  #scene{width:100%;height:190px;border-radius:16px;overflow:hidden;position:relative;
+    margin-bottom:14px;box-shadow:0 4px 18px rgba(0,0,0,.5);}
+  #scene canvas{display:block;width:100%;height:100%;}
+  #sceneTitre{position:absolute;left:12px;bottom:10px;font-family:"Arial Black";font-size:15px;
+    text-shadow:0 2px 8px rgba(0,0,0,.9);z-index:2;}
+  /* --- fil du conte --- */
+  #fil{display:flex;flex-direction:column;gap:9px;padding-bottom:6px;}
+  .bulle{max-width:88%;padding:11px 14px;border-radius:16px;font-size:14px;line-height:1.55;
+    animation:apparait .35s ease;}
+  @keyframes apparait{from{opacity:0;transform:translateY(9px);}to{opacity:1;transform:translateY(0);}}
+  .bulle.conteur{background:#2e2438;border:1px solid #453458;border-bottom-left-radius:5px;
+    align-self:flex-start;color:#e8e0f0;}
+  .bulle.conteur b{color:var(--or);}
+  .bulle.moi{background:linear-gradient(135deg,#0E7A3C,#0a5c2c);border-bottom-right-radius:5px;
+    align-self:flex-end;color:var(--craie);font-weight:600;}
+  .bulle.narration{background:rgba(245,194,27,.10);border:1px dashed rgba(245,194,27,.35);
+    align-self:center;max-width:94%;font-style:italic;font-size:13px;color:#d8c9a0;text-align:center;}
+  .quiTape{display:flex;gap:4px;padding:12px 15px;background:#2e2438;border-radius:16px;
+    border-bottom-left-radius:5px;align-self:flex-start;}
+  .quiTape span{width:7px;height:7px;border-radius:50%;background:#8a7f9a;animation:tape 1.2s infinite;}
+  .quiTape span:nth-child(2){animation-delay:.2s;}
+  .quiTape span:nth-child(3){animation-delay:.4s;}
+  @keyframes tape{0%,60%,100%{opacity:.3;transform:translateY(0);}30%{opacity:1;transform:translateY(-4px);}}
+  /* --- choix --- */
+  #choix{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+  .choixBtn{background:#2a2036;border:1.5px solid #4a3a60;color:var(--craie);
+    border-radius:13px;padding:13px 15px;font-size:13.5px;font-family:inherit;text-align:left;
+    line-height:1.4;transition:.15s;}
+  .choixBtn:active{transform:scale(.98);background:#3a2c4a;}
+  .choixBtn .num{color:var(--or);font-weight:bold;margin-right:7px;}
+  .choixBtn.bon{border-color:var(--vert);background:rgba(14,122,60,.22);}
+  .choixBtn.mauvais{border-color:var(--rouge);background:rgba(227,34,25,.18);opacity:.7;}
+  .choixBtn:disabled{opacity:.5;}
+  /* --- quiz --- */
+  #quizBox{display:none;}
+  .quizQ{font-family:"Arial Black";font-size:15px;margin-bottom:12px;line-height:1.4;}
+  #quizProg{font-size:11px;color:#9a8fa8;letter-spacing:1.5px;margin-bottom:8px;}
+  /* --- fin --- */
+  #fin{display:none;text-align:center;padding:12px 0;}
+  #fin h2{font-family:"Arial Black";font-size:26px;color:var(--or);margin-bottom:6px;}
+  #fin .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin:14px 0;}
+  #fin .stat{background:rgba(245,194,27,.09);border-radius:11px;padding:11px 4px;}
+  #fin .stat .v{font-family:"Arial Black";font-size:19px;color:var(--or);}
+  #fin .stat .l{font-size:8.5px;color:#9a8fa8;letter-spacing:1px;margin-top:3px;}
+  #fin p{font-size:13px;color:#c9bcd8;line-height:1.6;margin-bottom:16px;}
+  #fin .morale{background:rgba(245,194,27,.10);border-left:3px solid var(--or);
+    border-radius:0 10px 10px 0;padding:12px 14px;text-align:left;font-style:italic;
+    font-size:13.5px;color:#e8dcc0;margin-bottom:16px;line-height:1.6;}
+  .btnP{background:var(--or);color:var(--nuit);border:none;border-radius:999px;
+    padding:13px 30px;font-family:"Arial Black";font-size:14px;letter-spacing:.5px;width:100%;
+    margin-bottom:8px;}
+  .btnS{background:none;border:1px solid #4a3a60;color:#c9bcd8;border-radius:999px;
+    padding:11px 24px;font-size:12.5px;font-family:inherit;width:100%;margin-bottom:8px;}
+  .btnS.wa{border-color:#25D366;color:#25D366;}
+  footer{width:100%;max-width:430px;padding:6px 14px 10px;text-align:center;
+    font-size:10px;color:#6b5f7a;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">LE CONTE DU <span>SOIR</span><small>UN CONTE CHAQUE SOIR</small></div>
+  <div style="display:flex;align-items:center;gap:9px">
+    <button id="btnSon" style="background:none;border:1px solid #4a3a60;color:var(--craie);border-radius:999px;width:28px;height:28px;font-size:12px">🔊</button>
+    <div class="hud">
+      <div>🔥<span class="val" id="serie">0</span></div>
+      <div>⭐<span class="val" id="points">0</span></div>
+    </div>
+  </div>
+</header>
+<div id="serieBox"><div id="serieBar"></div></div>
+<div id="wrap">
+  <div id="scene">
+    <canvas id="cv"></canvas>
+    <div id="sceneTitre">Le Lièvre et l'Hyène</div>
+  </div>
+  <div id="fil"></div>
+  <div id="choix"></div>
+  <div id="quizBox"></div>
+  <div id="fin"></div>
+</div>
+<footer>Démo VAS — un nouveau conte chaque soir avec le pass</footer>
+<script>
+(function(){
+"use strict";
+// ---------- Son ----------
+var actx,muet=false;
+try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+function ac(){if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)();return actx;}
+function tone(f,d,t,v,gl){if(muet)return;try{var c=ac(),o=c.createOscillator(),g=c.createGain();
+o.type=t||'sine';o.frequency.value=f;if(gl)o.frequency.linearRampToValueAtTime(gl,c.currentTime+d);
+g.gain.value=v||0.09;g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+d);
+o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+d);}catch(e){}}
+var SFX={
+  bulle:function(){tone(560,0.05,'sine',0.05,700);},
+  choix:function(){tone(440,0.07,'triangle',0.08,660);},
+  bon:function(){tone(523,0.09,'sine',0.10);setTimeout(function(){tone(784,0.12,'sine',0.10);},70);},
+  mauvais:function(){tone(220,0.16,'sine',0.08,160);},
+  tam:function(){tone(110,0.22,'sine',0.13,70);setTimeout(function(){tone(150,0.18,'sine',0.09,90);},110);},
+  fin:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.20,'sine',0.11);},i*130);});},
+  estMuet:function(){return muet;},
+  toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+};
+(function(){var b=document.getElementById('btnSon');
+function m(){b.textContent=SFX.estMuet()?'🔇':'🔊';}m();
+b.addEventListener('click',function(){SFX.toggle();m();});})();
+
+var $=function(i){return document.getElementById(i);};
+var fil=$('fil'), zoneChoix=$('choix'), wrap=$('wrap');
+
+// ================= LE CONTE =================
+// chaque étape : texte du conteur, décor, et éventuellement un choix
+var CONTE={
+  titre:"Le Lièvre et l'Hyène",
+  morale:"La ruse du faible vaut mieux que la force de l'orgueilleux. Mais celui qui trompe trop souvent finit seul.",
+  etapes:[
+    {decor:'savane', qui:'conteur',
+     txt:"<b>Conte, conte !</b> … C'est ainsi qu'on commence chez nous. Réponds-moi : <b>« Conte ! »</b>"},
+    {decor:'savane', qui:'choix', question:null,
+     options:[
+       {txt:"Conte !", bon:true, suite:"Voilà une belle voix ! Alors écoute bien, petit."},
+       {txt:"Raconte, grand-père.", bon:true, suite:"Ha ! Poli en plus. Assieds-toi, l'histoire commence."}
+     ]},
+    {decor:'savane', qui:'conteur',
+     txt:"Il y a très longtemps, la saison sèche s'était installée sur la brousse. Les puits étaient à sec, l'herbe jaunie, et les animaux avaient faim."},
+    {decor:'savane', qui:'conteur',
+     txt:"<b>Hyène</b> se traînait sous le soleil, le ventre creux. Elle croisa <b>Lièvre</b>, assis tranquillement à l'ombre d'un karité, en train de croquer quelque chose de bon."},
+    {decor:'karite', qui:'conteur',
+     txt:"— Lièvre ! gronda Hyène. Où as-tu trouvé à manger ? Dis-le-moi, ou je te croque !"},
+    {decor:'karite', qui:'choix',
+     question:"Que devrait répondre Lièvre à son avis ?",
+     options:[
+       {txt:"Lui dire la vérité tout de suite", bon:false,
+        suite:"Hmm… Lièvre est bien trop malin pour ça ! S'il dit la vérité, Hyène mangera tout et lui ne laissera rien."},
+       {txt:"Inventer une ruse", bon:true,
+        suite:"Ah ! Tu connais déjà Lièvre, toi. C'est exactement ce qu'il fit."},
+       {txt:"S'enfuir en courant", bon:false,
+        suite:"Il aurait pu ! Mais Lièvre préfère son esprit à ses pattes. Écoute plutôt…"}
+     ]},
+    {decor:'karite', qui:'conteur',
+     txt:"— Grande Hyène, dit Lièvre en s'inclinant, j'ai trouvé un champ d'arachides. Mais il appartient au vieux Sanou, et il le garde jour et nuit."},
+    {decor:'champ', qui:'conteur',
+     txt:"— Le vieux dort à partir de minuit, ajouta Lièvre. Va-y à ce moment-là. Mais attention : il faut <b>creuser un trou sous la clôture</b> pour entrer. Et surtout… ne mange pas trop !"},
+    {decor:'champ', qui:'choix',
+     question:"Pourquoi Lièvre dit-il « ne mange pas trop » ?",
+     options:[
+       {txt:"Pour protéger le champ du vieux Sanou", bon:false,
+        suite:"Oh non, Lièvre se moque bien du champ ! Il a une autre idée derrière la tête."},
+       {txt:"Parce qu'un ventre trop plein ne repasse pas par le trou", bon:true,
+        suite:"Exactement ! Tu es aussi rusé que Lièvre. C'était tout son plan."},
+       {txt:"Pour que Lièvre en garde pour lui", bon:false,
+        suite:"Pas tout à fait. Lièvre pense à quelque chose de plus malin encore…"}
+     ]},
+    {decor:'nuit', qui:'conteur',
+     txt:"À minuit, Hyène creusa son trou et se glissa dans le champ. Les arachides étaient grasses et sucrées. Elle mangea… et mangea… et mangea encore."},
+    {decor:'nuit', qui:'conteur',
+     txt:"Quand le coq chanta, Hyène voulut ressortir. Mais son ventre était devenu si gros qu'il <b>resta coincé dans le trou</b> !"},
+    {decor:'nuit', qui:'choix',
+     question:"Que va-t-il se passer à ton avis ?",
+     options:[
+       {txt:"Le vieux Sanou va la trouver", bon:true,
+        suite:"Tu as deviné. Et le vieux n'était pas content du tout !"},
+       {txt:"Lièvre va venir l'aider", bon:false,
+        suite:"L'aider ? Lièvre ? Ha ! Il était déjà loin, en train de rire sous sa moustache."},
+       {txt:"Elle va réussir à sortir", bon:false,
+        suite:"Elle a bien essayé, la pauvre ! Mais plus elle tirait, plus elle restait prise."}
+     ]},
+    {decor:'aube', qui:'conteur',
+     txt:"Au petit matin, le vieux Sanou trouva Hyène coincée, le museau couvert de terre. Il prit son bâton et lui donna une leçon dont elle se souvient encore."},
+    {decor:'aube', qui:'conteur',
+     txt:"Depuis ce jour, dit-on, <b>Hyène marche le dos courbé</b> — c'est le souvenir du bâton du vieux Sanou. Et quand elle rit la nuit, c'est de rage contre Lièvre."},
+    {decor:'aube', qui:'conteur',
+     txt:"Et Lièvre ? Il retourna sous son karité, où il avait caché sa vraie réserve. Car le champ d'arachides… <b>il ne l'avait jamais visité</b>."}
+  ],
+  quiz:[
+    {q:"Pourquoi Hyède cherchait-elle à manger ?",
+     opts:["C'était la saison sèche et elle avait faim","Elle préparait une fête","Elle voulait nourrir ses petits"],
+     bon:0},
+    {q:"Quel conseil Lièvre a-t-il donné à Hyène ?",
+     opts:["De courir vite","De ne pas trop manger","De partager avec lui"],
+     bon:1},
+    {q:"Pourquoi Hyène est-elle restée coincée ?",
+     opts:["Le trou s'est refermé","Le vieux l'a attrapée","Son ventre était trop plein"],
+     bon:2},
+    {q:"Qu'explique ce conte à la fin ?",
+     opts:["Pourquoi Hyène marche le dos courbé","Pourquoi le lièvre a de longues oreilles","Pourquoi il pleut en juillet"],
+     bon:0}
+  ]
+};
+// (petite correction d'affichage du quiz)
+CONTE.quiz[0].q="Pourquoi Hyène cherchait-elle à manger ?";
+
+// ================= ÉTAT =================
+var etape=0, points=0, bonnesRep=0, quizIdx=0, quizBons=0, enQuiz=false, termine=false;
+var serie=0, joursFaits=[], dernierJour=null;
+try{
+  serie=parseInt(localStorage.getItem('fasogames_conte_serie')||'0',10)||0;
+  joursFaits=JSON.parse(localStorage.getItem('fasogames_conte_jours')||'[]');
+  dernierJour=localStorage.getItem('fasogames_conte_dernier')||null;
+  points=parseInt(localStorage.getItem('fasogames_conte_points')||'0',10)||0;
+}catch(e){}
+function aujourdhui(){var d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
+function majSerie(){
+  $('serie').textContent=serie;
+  $('points').textContent=points;
+  var noms=['L','M','M','J','V','S','D'];
+  var jour=new Date().getDay(); // 0=dimanche
+  var idxAuj=(jour===0)?6:jour-1;
+  var h='';
+  for(var i=0;i<7;i++){
+    var cls='jour';
+    if(i<idxAuj&&i>=idxAuj-serie)cls+=' fait';
+    if(i===idxAuj)cls+=' auj';
+    h+='<div class="'+cls+'">'+noms[i]+'</div>';
+  }
+  $('serieBar').innerHTML=h;
+}
+
+// ================= DÉCORS =================
+var cv=$('cv'), cx=cv.getContext('2d'), CW=0,CH=0, decorAct='savane', tDecor=0;
+function resizeD(){
+  var r=cv.parentElement.getBoundingClientRect();
+  var dpr=Math.min(window.devicePixelRatio||1,2);
+  CW=r.width;CH=r.height;
+  cv.width=CW*dpr;cv.height=CH*dpr;
+  cx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize',resizeD);
+var PALETTES={
+  savane:{ciel:['#e8a850','#f0c880','#e8d8a8'],sol:'#b08850',herbe:'#8a9a48',astre:'#fff0b0',astreY:.30,etoiles:0},
+  karite:{ciel:['#d89040','#e8b870','#e0d0a0'],sol:'#a87a44',herbe:'#7a8a40',astre:'#ffe8a0',astreY:.34,etoiles:0},
+  champ: {ciel:['#8a6a90','#c08a70','#d8b088'],sol:'#8a6a3a',herbe:'#6a7a38',astre:'#ffd090',astreY:.44,etoiles:0},
+  nuit:  {ciel:['#141028','#241c3e','#38284a'],sol:'#3a2c40',herbe:'#2a3a30',astre:'#e8e8f0',astreY:.22,etoiles:26},
+  aube:  {ciel:['#4a5a90','#c08a70','#f0c080'],sol:'#a07a48',herbe:'#7a8a44',astre:'#fff4c0',astreY:.62,etoiles:6},
+};
+function dessinerDecor(){
+  if(!CW)resizeD();
+  tDecor+=0.016;
+  var P=PALETTES[decorAct]||PALETTES.savane;
+  var g=cx.createLinearGradient(0,0,0,CH);
+  g.addColorStop(0,P.ciel[0]);g.addColorStop(0.55,P.ciel[1]);g.addColorStop(1,P.ciel[2]);
+  cx.fillStyle=g;cx.fillRect(0,0,CW,CH);
+  // étoiles
+  for(var e=0;e<P.etoiles;e++){
+    var ex=(e*67)%CW, ey=((e*41)%Math.round(CH*0.5));
+    var sc=0.5+Math.abs(Math.sin(tDecor*1.5+e))*0.5;
+    cx.globalAlpha=sc*0.9;
+    cx.fillStyle='#fff';
+    cx.beginPath();cx.arc(ex,ey,1.3,0,7);cx.fill();
+    cx.globalAlpha=1;
+  }
+  // astre
+  var ax=CW*0.74, ay=CH*P.astreY;
+  var ga=cx.createRadialGradient(ax,ay,3,ax,ay,42);
+  ga.addColorStop(0,P.astre);ga.addColorStop(0.4,P.astre.replace(')',',.4)').replace('#','rgba(')==P.astre?'rgba(255,240,180,.35)':'rgba(255,240,180,.35)');
+  ga.addColorStop(1,'rgba(255,240,180,0)');
+  cx.fillStyle=ga;cx.beginPath();cx.arc(ax,ay,42,0,7);cx.fill();
+  cx.fillStyle=P.astre;
+  cx.beginPath();cx.arc(ax,ay,decorAct==='nuit'?11:15,0,7);cx.fill();
+  // collines
+  cx.fillStyle='rgba(0,0,0,.16)';
+  cx.beginPath();cx.moveTo(0,CH);
+  for(var x=0;x<=CW;x+=10){
+    cx.lineTo(x,CH*0.62+Math.sin(x*0.014)*13+Math.sin(x*0.03)*7);
+  }
+  cx.lineTo(CW,CH);cx.closePath();cx.fill();
+  // sol
+  cx.fillStyle=P.sol;
+  cx.fillRect(0,CH*0.74,CW,CH*0.26);
+  cx.fillStyle=P.herbe;
+  cx.fillRect(0,CH*0.74,CW,6);
+  // baobab / karité selon le décor
+  if(decorAct==='karite'||decorAct==='savane'){
+    arbre(CW*0.22,CH*0.76,1);
+  }
+  if(decorAct==='champ'||decorAct==='nuit'){
+    // rangées d'arachides
+    cx.strokeStyle='rgba(70,90,40,.75)';cx.lineWidth=2.4;
+    for(var r2=0;r2<9;r2++){
+      var ry=CH*0.78+r2*4;
+      cx.beginPath();cx.moveTo(0,ry);cx.lineTo(CW,ry+2);cx.stroke();
+    }
+    for(var pl=0;pl<12;pl++){
+      var px=(pl*38+12)%CW;
+      cx.fillStyle='rgba(90,120,50,.85)';
+      cx.beginPath();cx.arc(px,CH*0.80,7,0,7);cx.fill();
+      cx.beginPath();cx.arc(px-6,CH*0.83,5,0,7);cx.fill();
+      cx.beginPath();cx.arc(px+6,CH*0.83,5,0,7);cx.fill();
+    }
+    // clôture
+    cx.strokeStyle='#6a4a24';cx.lineWidth=3;
+    for(var f=0;f<CW;f+=26){
+      cx.beginPath();cx.moveTo(f,CH*0.74);cx.lineTo(f,CH*0.60);cx.stroke();
+    }
+    cx.beginPath();cx.moveTo(0,CH*0.64);cx.lineTo(CW,CH*0.64);cx.stroke();
+  }
+  if(decorAct==='aube'){
+    arbre(CW*0.16,CH*0.76,0.85);
+    // le vieux Sanou avec son bâton
+    cx.strokeStyle='#5a4020';cx.lineWidth=3;
+    cx.beginPath();cx.moveTo(CW*0.55,CH*0.76);cx.lineTo(CW*0.55,CH*0.60);cx.stroke();
+    cx.fillStyle='#8a6a44';
+    cx.fillRect(CW*0.57,CH*0.63,11,13);
+    cx.beginPath();cx.arc(CW*0.57+5.5,CH*0.61,5,0,7);cx.fill();
+  }
+}
+function arbre(x,y,e){
+  cx.save();cx.translate(x,y);cx.scale(e,e);
+  cx.strokeStyle='#6a4a28';cx.lineWidth=8;cx.lineCap='round';
+  cx.beginPath();cx.moveTo(0,0);cx.quadraticCurveTo(-4,-26,-2,-48);cx.stroke();
+  cx.fillStyle='rgba(60,100,50,.9)';
+  [[-20,-56,20],[14,-60,18],[-2,-72,21],[20,-48,14],[-24,-44,13]].forEach(function(b){
+    cx.beginPath();cx.arc(b[0],b[1],b[2],0,7);cx.fill();
+  });
+  cx.restore();
+}
+function changerDecor(d){decorAct=d;}
+function boucleDecor(){dessinerDecor();requestAnimationFrame(boucleDecor);}
+
+// ================= DÉROULÉ =================
+function bulle(cls,txt){
+  var d=document.createElement('div');
+  d.className='bulle '+cls;
+  d.innerHTML=txt;
+  fil.appendChild(d);
+  SFX.bulle();
+  setTimeout(function(){wrap.scrollTop=wrap.scrollHeight;},60);
+  return d;
+}
+function ecrire(txt,apres){
+  // indicateur "le conteur écrit"
+  var t=document.createElement('div');
+  t.className='quiTape';
+  t.innerHTML='<span></span><span></span><span></span>';
+  fil.appendChild(t);
+  wrap.scrollTop=wrap.scrollHeight;
+  var duree=Math.min(1400,450+txt.replace(/<[^>]+>/g,'').length*11);
+  setTimeout(function(){
+    t.remove();
+    bulle('conteur',txt);
+    if(apres)apres();
+  },duree);
+}
+function avancer(){
+  zoneChoix.innerHTML='';
+  if(etape>=CONTE.etapes.length){lancerQuiz();return;}
+  var E=CONTE.etapes[etape];
+  if(E.decor)changerDecor(E.decor);
+  if(E.qui==='conteur'){
+    ecrire(E.txt,function(){
+      etape++;
+      setTimeout(avancer,420);
+    });
+  }else if(E.qui==='choix'){
+    if(E.question)ecrire(E.question,function(){afficherChoix(E);});
+    else afficherChoix(E);
+  }
+}
+function afficherChoix(E){
+  zoneChoix.innerHTML='';
+  E.options.forEach(function(o,i){
+    var b=document.createElement('button');
+    b.className='choixBtn';
+    b.innerHTML='<span class="num">'+(i+1)+'.</span>'+o.txt;
+    b.addEventListener('click',function(){
+      // désactiver tous les boutons
+      [].forEach.call(zoneChoix.children,function(x){x.disabled=true;});
+      b.classList.add(o.bon?'bon':'mauvais');
+      SFX.choix();
+      bulle('moi',o.txt);
+      if(o.bon){points+=15;bonnesRep++;SFX.bon();}
+      else{points+=5;SFX.mauvais();}
+      $('points').textContent=points;
+      setTimeout(function(){
+        zoneChoix.innerHTML='';
+        ecrire(o.suite,function(){
+          etape++;
+          setTimeout(avancer,420);
+        });
+      },520);
+    });
+    zoneChoix.appendChild(b);
+  });
+  wrap.scrollTop=wrap.scrollHeight;
+}
+
+// ================= QUIZ =================
+function lancerQuiz(){
+  enQuiz=true;quizIdx=0;quizBons=0;
+  SFX.tam();
+  bulle('narration','🥁 Le conte est fini. Maintenant, le vieux te pose quelques questions…');
+  setTimeout(questionSuivante,900);
+}
+function questionSuivante(){
+  var box=$('quizBox');
+  if(quizIdx>=CONTE.quiz.length){box.style.display='none';terminerConte();return;}
+  var Q=CONTE.quiz[quizIdx];
+  box.style.display='block';
+  var h='<div id="quizProg">QUESTION '+(quizIdx+1)+' / '+CONTE.quiz.length+'</div>';
+  h+='<div class="quizQ">'+Q.q+'</div><div id="quizOpts"></div>';
+  box.innerHTML=h;
+  var zo=document.getElementById('quizOpts');
+  zo.style.display='flex';zo.style.flexDirection='column';zo.style.gap='8px';
+  Q.opts.forEach(function(o,i){
+    var b=document.createElement('button');
+    b.className='choixBtn';
+    b.innerHTML='<span class="num">'+String.fromCharCode(65+i)+'.</span>'+o;
+    b.addEventListener('click',function(){
+      [].forEach.call(zo.children,function(x){x.disabled=true;});
+      if(i===Q.bon){
+        b.classList.add('bon');quizBons++;points+=25;SFX.bon();
+      }else{
+        b.classList.add('mauvais');
+        zo.children[Q.bon].classList.add('bon');
+        SFX.mauvais();
+      }
+      $('points').textContent=points;
+      quizIdx++;
+      setTimeout(questionSuivante,1100);
+    });
+    zo.appendChild(b);
+  });
+  wrap.scrollTop=wrap.scrollHeight;
+}
+
+// ================= FIN =================
+function terminerConte(){
+  termine=true;
+  // série quotidienne
+  var auj=aujourdhui();
+  if(dernierJour!==auj){
+    var hier=new Date();hier.setDate(hier.getDate()-1);
+    var hierS=hier.getFullYear()+'-'+(hier.getMonth()+1)+'-'+hier.getDate();
+    serie=(dernierJour===hierS)?serie+1:1;
+    dernierJour=auj;
+    try{
+      localStorage.setItem('fasogames_conte_serie',serie);
+      localStorage.setItem('fasogames_conte_dernier',auj);
+      localStorage.setItem('fasogames_conte_points',points);
+    }catch(e){}
+  }
+  majSerie();
+  SFX.fin();
+  var f=$('fin');
+  f.style.display='block';
+  var mention = quizBons===CONTE.quiz.length ? "Sans faute ! Tu as bien écouté."
+    : quizBons>=CONTE.quiz.length-1 ? "Presque parfait !"
+    : quizBons>=2 ? "Pas mal, mais réécoute le conte."
+    : "Il faudra mieux écouter la prochaine fois !";
+  f.innerHTML=
+    '<h2>🌙 Conte terminé</h2>'+
+    '<div class="stats">'+
+      '<div class="stat"><div class="v">'+quizBons+'/'+CONTE.quiz.length+'</div><div class="l">QUIZ</div></div>'+
+      '<div class="stat"><div class="v">'+points+'</div><div class="l">POINTS</div></div>'+
+      '<div class="stat"><div class="v">'+serie+'</div><div class="l">SOIRS DE SUITE</div></div>'+
+    '</div>'+
+    '<p>'+mention+'</p>'+
+    '<div class="morale"><b>La morale :</b><br>'+CONTE.morale+'</div>'+
+    '<p style="color:#9a8fa8;font-size:12px">🌙 Reviens demain soir : un nouveau conte t\'attend.</p>'+
+    '<button class="btnS wa" id="btnPartager">📤 Partager ce conte</button>'+
+    '<button class="btnP" id="btnRejouer">RÉÉCOUTER LE CONTE</button>';
+  document.getElementById('btnRejouer').addEventListener('click',recommencer);
+  document.getElementById('btnPartager').addEventListener('click',function(){
+    var m="🌙 J'ai écouté « "+CONTE.titre+" » sur Faso Games et j'ai eu "+quizBons+"/"+
+      CONTE.quiz.length+" au quiz ! À ton tour de jouer ici 👉 "+LIEN;
+    if(navigator.share)navigator.share({title:'Le Conte du Soir',text:m,url:LIEN}).catch(function(){});
+    else window.open('https://wa.me/?text='+encodeURIComponent(m),'_blank');
+  });
+  wrap.scrollTop=wrap.scrollHeight;
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Le Conte du Soir',
+    score:Math.min(600,points),victoire:quizBons>=3},'*');}catch(e){}}
+}
+var LIEN='https://teal-muffin-8e3f01.netlify.app';
+function recommencer(){
+  etape=0;quizIdx=0;quizBons=0;bonnesRep=0;enQuiz=false;termine=false;
+  fil.innerHTML='';zoneChoix.innerHTML='';
+  $('quizBox').style.display='none';$('quizBox').innerHTML='';
+  $('fin').style.display='none';$('fin').innerHTML='';
+  changerDecor('savane');
+  bulle('narration','🌙 Le soir tombe sur le village. Le vieux s\'assoit sous le manguier…');
+  setTimeout(avancer,900);
+}
+
+window.__conte={
+  state:function(){return {etape:etape,total:CONTE.etapes.length,points:points,
+    quizIdx:quizIdx,quizBons:quizBons,quizTotal:CONTE.quiz.length,
+    enQuiz:$('quizBox').style.display==='block',termine:termine,serie:serie,
+    bulles:fil.children.length,choix:zoneChoix.children.length,decor:decorAct,
+    muet:SFX.estMuet()};},
+  choisir:function(i){
+    var b=zoneChoix.children[i];
+    if(b&&!b.disabled){b.click();return true;}
+    var zo=document.getElementById('quizOpts');
+    if(zo&&zo.children[i]&&!zo.children[i].disabled){zo.children[i].click();return true;}
+    return false;
+  },
+  premierChoixDispo:function(){
+    if(zoneChoix.children.length)return 'conte';
+    var zo=document.getElementById('quizOpts');
+    if(zo&&zo.children.length)return 'quiz';
+    return null;
+  },
+  recommencer:recommencer
+};
+
+majSerie();
+resizeD();
+boucleDecor();
+recommencer();
+})();
+</script>
+</body>
+</html>

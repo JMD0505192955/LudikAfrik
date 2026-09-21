@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Tri Éclair Faso</title>
+<style>
+  :root{--vert:#0E7A3C;--rouge:#E32219;--or:#F5C21B;--nuit:#12130F;--craie:#FAF7EF;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:var(--nuit);font-family:"Arial Black","Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;}
+  header{width:100%;max-width:430px;padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-size:20px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial,sans-serif;font-weight:400;font-size:9px;letter-spacing:3px;color:#8b8f84;margin-top:3px;}
+  .scores{text-align:right;line-height:1.25;}
+  .scores .val{font-size:20px;color:var(--or);}
+  .scores .lbl{font-family:Arial,sans-serif;font-size:9px;letter-spacing:2px;color:#8b8f84;}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;flex-direction:column;padding:6px 16px 10px;}
+  #barreTemps{height:6px;background:#1d1f19;border-radius:99px;overflow:hidden;margin-bottom:14px;}
+  #barreTemps>div{height:100%;background:var(--or);width:100%;transition:width .1s linear;}
+  #consigne{font-size:16px;text-align:center;margin:8px 0 10px;font-family:Arial;font-weight:normal;color:var(--craie);}
+  #consigne b{color:var(--or);font-family:"Arial Black";}
+  #progression{display:flex;justify-content:center;gap:8px;margin-bottom:12px;}
+  .step{width:34px;height:34px;border-radius:50%;background:#1d1f19;border:1.5px solid #2a2c24;
+    display:flex;align-items:center;justify-content:center;font-size:14px;color:#8b8f84;}
+  .step.ok{background:var(--vert);border-color:var(--vert);color:var(--craie);}
+  #nombres{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+  .nb{background:#1d1f19;border:2px solid #2a2c24;color:var(--craie);border-radius:14px;
+    padding:22px 0;font-family:inherit;font-size:30px;font-weight:bold;transition:.12s;}
+  .nb:active{transform:scale(.96);}
+  .nb.pris{background:var(--vert);border-color:var(--vert);opacity:.75;}
+  .nb.erreur{background:var(--rouge);border-color:var(--rouge);}
+  #serie{text-align:center;height:22px;font-size:15px;color:var(--or);margin:8px 0;}
+  #fin{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,19,15,.94);text-align:center;padding:22px;}
+  #fin h2{font-size:44px;color:var(--or);margin-bottom:4px;}
+  #fin .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;width:100%;max-width:340px;margin:10px 0 20px;}
+  #fin .stat{background:#1d1f19;border-radius:10px;padding:12px 6px;}
+  #fin .stat .v{font-size:22px;font-weight:bold;color:var(--or);}
+  #fin .stat .l{font-size:10px;color:#8b8f84;letter-spacing:1px;margin-top:2px;}
+  #fin p{font-family:Arial,sans-serif;font-size:14px;color:#c9ccc0;margin-bottom:22px;line-height:1.5;max-width:340px;}
+  #fin button{font-family:inherit;font-size:16px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:14px 40px;}
+  footer{width:100%;max-width:430px;padding:6px 16px 12px;text-align:center;
+    font-family:Arial,sans-serif;font-size:11px;color:#6c7064;letter-spacing:.5px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">TRI ÉCLAIR <span>FASO</span><small>CLASSE EN 40 S</small></div>
+  <div style="display:flex;align-items:center;gap:0"><button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:32px;height:32px;font-size:14px;margin-right:8px">🔊</button>
+<div class="scores"><div class="val" id="score">0</div>
+  <div class="lbl">SÉRIE <span id="serieN">0</span> 🔥</div></div>
+</div>
+</header>
+<div id="wrap">
+  <div id="barreTemps"><div id="jauge"></div></div>
+  <div id="consigne"></div>
+  <div id="progression"></div>
+  <div id="nombres"></div>
+  <div id="serie">Trouve le bon ordre du premier coup !</div>
+  <div id="fin">
+    <h2 id="finScore"></h2>
+    <div class="stats">
+      <div class="stat"><div class="v" id="fBonnes">0</div><div class="l">RÉUSSIES</div></div>
+      <div class="stat"><div class="v" id="fPrecision">0%</div><div class="l">PRÉCISION</div></div>
+      <div class="stat"><div class="v" id="fSerie">0</div><div class="l">MEILLEURE</div></div>
+    </div>
+    <p id="finTexte"></p>
+    <button id="rejouer">REJOUER</button>
+  </div>
+</div>
+<footer>Démo VAS — classement hebdo &amp; lots airtime à venir</footer>
+<script>
+(function(){
+"use strict";
+// ===== Kit sonore Faso Games (synthétisé, 0 Ko d'assets, silencieux par défaut respecté) =====
+var SFX=(function(){
+  var ctx,muet=false;
+  try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+  function ac(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();return ctx;}
+  function tone(freq,dur,type,vol,glide){
+    if(muet)return;
+    try{
+      var c=ac();var o=c.createOscillator();var g=c.createGain();
+      o.type=type||'sine';o.frequency.value=freq;
+      if(glide)o.frequency.linearRampToValueAtTime(glide,c.currentTime+dur);
+      g.gain.value=vol||0.15;
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+      o.connect(g);g.connect(c.destination);
+      o.start();o.stop(c.currentTime+dur);
+    }catch(e){}
+  }
+  return{
+    tap:function(){tone(440,0.05,'square',0.08);},
+    bon:function(){tone(523,0.09,'sine',0.14);setTimeout(function(){tone(784,0.12,'sine',0.14);},70);},
+    mauvais:function(){tone(160,0.22,'sawtooth',0.12,90);},
+    victoire:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.15);},i*90);});},
+    defaite:function(){[392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.22,'sine',0.12);},i*120);});},
+    piece:function(){tone(988,0.08,'triangle',0.12,1400);},
+    tick:function(){tone(300,0.03,'square',0.05);},
+    estMuet:function(){return muet;},
+    toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+  };
+})();
+// Bouton mute (à placer dans le header de chaque jeu)
+function initBoutonSon(id){
+  var b=document.getElementById(id);
+  if(!b)return;
+  function maj(){b.textContent=SFX.estMuet()?'🔇':'🔊';}
+  maj();
+  b.addEventListener('click',function(){SFX.toggle();maj();});
+}
+// Confetti simple (petites particules colorées, pour les écrans de victoire)
+function confetti(canvas,ctx,cx,cy){
+  var parts=[];
+  var couleurs=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<24;i++){
+    var a=Math.random()*Math.PI*2,v=2+Math.random()*3;
+    parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,g:0.12,vie:1,col:couleurs[i%couleurs.length],taille:3+Math.random()*3});
+  }
+  return parts;
+}
+function drawConfetti(ctx,parts,dt){
+  for(var i=parts.length-1;i>=0;i--){
+    var p=parts[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vie-=0.018*dt;
+    if(p.vie<=0){parts.splice(i,1);continue;}
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.taille/2,p.y-p.taille/2,p.taille,p.taille);
+    ctx.globalAlpha=1;
+  }
+}
+
+
+function domConfetti(){
+  const colors=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(let i=0;i<28;i++){
+    const el=document.createElement('div');
+    const size=4+Math.random()*4;
+    el.style.cssText='position:fixed;z-index:60;pointer-events:none;border-radius:2px;';
+    el.style.width=size+'px';el.style.height=size+'px';
+    el.style.background=colors[i%colors.length];
+    el.style.left=(window.innerWidth/2+(Math.random()-0.5)*60)+'px';
+    el.style.top='38%';
+    document.body.appendChild(el);
+    const dx=(Math.random()-0.5)*260, dy=200+Math.random()*220, rot=Math.random()*720-360;
+    const dur=900+Math.random()*500;
+    el.animate([
+      {transform:'translate(0,0) rotate(0deg)',opacity:1},
+      {transform:'translate('+dx+'px,'+dy+'px) rotate('+rot+'deg)',opacity:0}
+    ],{duration:dur,easing:'cubic-bezier(.25,.46,.45,.94)'});
+    setTimeout(()=>el.remove(),dur+50);
+  }
+}
+initBoutonSon("btnSon");
+
+const nbEl=document.getElementById('nombres'),consigneEl=document.getElementById('consigne');
+const progEl=document.getElementById('progression'),serieEl=document.getElementById('serie');
+const scoreEl=document.getElementById('score'),serieN=document.getElementById('serieN');
+const jauge=document.getElementById('jauge');
+const fin=document.getElementById('fin'),finScore=document.getElementById('finScore');
+const finTexte=document.getElementById('finTexte');
+const fBonnes=document.getElementById('fBonnes'),fPrecision=document.getElementById('fPrecision'),fSerie=document.getElementById('fSerie');
+
+const DUREE=40, K=5;
+let score,serie,meilleureSerie,manches,reussies,tempsRestant,timer;
+let nombres,ordreVoulu,attendu,index,manche;
+
+function nouvelle(){
+  const set=new Set();
+  while(set.size<K){set.add(2+Math.floor(Math.random()*98));}
+  nombres=[...set];
+  const croissant=Math.random()<0.5;
+  ordreVoulu=[...nombres].sort((a,b)=>croissant?a-b:b-a);
+  attendu=[...ordreVoulu];
+  index=0;manche=[];
+  consigneEl.innerHTML='Classe du <b>'+(croissant?'PLUS PETIT au PLUS GRAND':'PLUS GRAND au PLUS PETIT')+'</b>';
+  // progression
+  progEl.innerHTML='';
+  for(let i=0;i<K;i++){
+    const s=document.createElement('div');s.className='step';s.textContent=i+1;progEl.appendChild(s);
+  }
+  // nombres
+  nbEl.innerHTML='';
+  const melange=[...nombres].sort(()=>Math.random()-0.5);
+  melange.forEach(v=>{
+    const b=document.createElement('button');b.className='nb';b.textContent=v;
+    b.addEventListener('click',()=>clic(v,b));
+    nbEl.appendChild(b);
+  });
+}
+function clic(v,btn){
+  if(btn.classList.contains('pris'))return;
+  if(v===attendu[index]){
+    btn.classList.add('pris');
+    progEl.children[index].classList.add('ok');
+    manche.push(v);index++;
+    SFX.tap();
+    if(index===K){
+      // manche réussie
+      reussies++;serie++;
+      if(serie>meilleureSerie)meilleureSerie=serie;
+      const pts=25+Math.min(30,(serie-1)*5);
+      score+=pts;
+      scoreEl.textContent=score;serieN.textContent=serie;
+      serieEl.textContent='✅ +'+pts+' pts'+(serie>=3?' (série x'+serie+' 🔥)':'');
+      SFX.bon();
+      setTimeout(()=>{if(tempsRestant>0){manches++;nouvelle();}},650);
+    }
+  }else{
+    // erreur : casser la série, montrer, repartir sur nouvelle grille
+    btn.classList.add('erreur');
+    [...nbEl.children].forEach(b=>{b.style.pointerEvents='none';});
+    serie=0;serieN.textContent='0';
+    serieEl.textContent='❌ Trop rapide ! Le prochain était '+attendu[index];
+    SFX.mauvais();
+    setTimeout(()=>{if(tempsRestant>0){manches++;nouvelle();}},1000);
+  }
+}
+function reset(){
+  score=0;serie=0;meilleureSerie=0;reussies=0;manches=0;tempsRestant=DUREE;
+  scoreEl.textContent='0';serieN.textContent='0';
+  fin.style.display='none';
+  serieEl.textContent='Trouve le bon ordre du premier coup !';
+  nouvelle();
+  jauge.style.width='100%';jauge.style.background='#F5C21B';
+  clearInterval(timer);
+  timer=setInterval(tick,100);
+}
+function tick(){
+  tempsRestant-=0.1;
+  jauge.style.width=Math.max(0,tempsRestant/DUREE*100)+'%';
+  jauge.style.background=tempsRestant<5?'#E32219':'#F5C21B';
+  if(tempsRestant<=0){clearInterval(timer);terminer();}
+}
+function terminer(){
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Tri Éclair',score:Math.round(score*1.4),victoire:score>=250},'*');}catch(e){}}
+  fin.style.display='flex';
+  finScore.textContent=score+' pts';
+  fBonnes.textContent=reussies;
+  const total=manches+(index===K?0:1);
+  fPrecision.textContent=(total?Math.round(reussies/total*100):0)+'%';
+  fSerie.textContent=meilleureSerie;
+  finTexte.textContent=score>=250?"Vitesse d'aigle ! Le classement hebdo t'attend."
+    :score>=140?"Beau rythme ! Zéro erreur, c'est le combo gagnant."
+    :"Prends une seconde pour repérer le plus petit avant de cliquer !";
+  if(score>=250){SFX.victoire();domConfetti();}
+}
+document.getElementById('rejouer').addEventListener('click',reset);
+
+window.__tri={forcerFin:()=>{score=300;terminer();},state:()=>({score,serie,tempsRestant,index,muet:SFX.estMuet()}),
+  jouerBon:()=>{const b=[...nbEl.children].find(x=>+x.textContent===attendu[index]);if(b)clic(attendu[index],b);}};
+reset();
+})();
+</script>
+</body>
+</html>

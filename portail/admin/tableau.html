@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ludikafrik — Tableau de bord</title>
+<link rel="icon" href="../assets/favicon.svg">
+<style>
+  :root{--bleu:#012662;--jaune:#FBAD01;--ivoire:#FFF8E8;--ciel:#DCE8F8;--blanc:#fff;
+        --txt:#20211d;--txt2:#7a8194;--bord:#eae3d4;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:"Segoe UI",system-ui,Arial,sans-serif;background:var(--ivoire);color:var(--txt);}
+  #app{display:flex;min-height:100vh;}
+  /* barre latérale */
+  aside{width:236px;background:#fcfaf3;border-right:1px solid var(--bord);
+    position:fixed;top:0;bottom:0;left:0;padding:22px 16px;display:flex;flex-direction:column;}
+  .marque{display:flex;align-items:center;gap:10px;padding:4px 8px 22px;}
+  .marque svg{width:34px;height:34px;}
+  .marque span{font-weight:800;font-size:16px;color:var(--bleu);letter-spacing:.5px;}
+  nav{display:flex;flex-direction:column;gap:3px;}
+  nav button{display:flex;align-items:center;gap:12px;padding:11px 14px;border:none;
+    background:none;border-radius:11px;color:#5a6274;font-family:inherit;font-size:14px;
+    font-weight:600;cursor:pointer;text-align:left;width:100%;}
+  nav button:hover{background:rgba(1,38,98,.06);}
+  nav button.actif{background:var(--ciel);color:var(--bleu);}
+  nav .ic{font-size:17px;width:20px;text-align:center;}
+  aside .bas{margin-top:auto;}
+  .deco{display:flex;align-items:center;gap:10px;padding:11px 14px;background:none;border:none;
+    color:#c0392b;font-family:inherit;font-size:13.5px;cursor:pointer;width:100%;border-radius:10px;}
+  .deco:hover{background:#fdeceb;}
+  /* contenu */
+  main{flex:1;margin-left:236px;padding:0;}
+  header{background:var(--ivoire);border-bottom:1px solid var(--bord);
+    padding:16px 30px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
+  header .fil{font-size:13px;color:var(--txt2);}
+  header .fil b{color:var(--txt);}
+  header .prof{display:flex;align-items:center;gap:9px;font-size:13px;}
+  header .av{width:30px;height:30px;border-radius:50%;background:var(--bleu);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
+  .wrap{padding:26px 30px 50px;max-width:1050px;}
+  h1{font-size:26px;font-weight:800;margin-bottom:4px;}
+  .date{font-size:12px;letter-spacing:1.5px;color:var(--txt2);font-weight:700;text-transform:uppercase;margin-bottom:18px;}
+  /* cartes de stats */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin-bottom:30px;}
+  .stat{background:#fff;border:1px solid var(--bord);border-radius:16px;padding:18px 20px;
+    box-shadow:0 3px 12px rgba(1,38,98,.04);}
+  .stat .l{font-size:12px;color:var(--txt2);margin-bottom:8px;}
+  .stat .v{font-size:26px;font-weight:800;color:var(--bleu);}
+  .stat .v small{font-size:14px;font-weight:600;color:var(--txt2);}
+  /* sections tableaux */
+  .bloc{background:#fff;border:1px solid var(--bord);border-radius:16px;overflow:hidden;margin-bottom:22px;}
+  .bloc h2{font-size:15px;padding:16px 20px;border-bottom:1px solid var(--bord);
+    display:flex;align-items:center;justify-content:space-between;}
+  .bloc h2 .rech{border:1px solid var(--bord);border-radius:9px;padding:6px 10px;font-size:12.5px;
+    font-family:inherit;width:180px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;padding:10px 20px;color:var(--txt2);font-weight:600;font-size:11.5px;
+    text-transform:uppercase;letter-spacing:.5px;background:#fbf9f2;}
+  td{padding:11px 20px;border-top:1px solid #f2ece0;}
+  tr:hover td{background:#fcfbf6;}
+  .puce{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:600;}
+  .puce.actif{background:#e3f4e8;color:#1a8a44;}
+  .puce.essai{background:#fef3d8;color:#a67908;}
+  .puce.reussi{background:#e3f4e8;color:#1a8a44;}
+  .puce.attente{background:#eee;color:#777;}
+  .puce.echec{background:#fdeceb;color:#c0392b;}
+  .vide{padding:26px 20px;text-align:center;color:var(--txt2);font-size:13px;}
+  .vue{display:none;}
+  .vue.active{display:block;}
+  @media(max-width:820px){
+    aside{width:64px;padding:16px 8px;}
+    .marque span,nav button span:not(.ic),.deco span{display:none;}
+    main{margin-left:64px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <div class="marque">
+      <svg viewBox="0 0 120 120"><path d="M30 22 C30 17 35 14 39 17 L92 52 C97 55 97 61 92 64 L39 99 C35 102 30 99 30 94 Z" fill="#012662"/><circle cx="99" cy="80" r="15" fill="#FBAD01"/></svg>
+      <span>LUDIKAFRIK</span>
+    </div>
+    <nav>
+      <button class="actif" data-vue="tableau"><span class="ic">▦</span><span>Tableau de bord</span></button>
+      <button data-vue="abonnes"><span class="ic">👥</span><span>Abonnés</span></button>
+      <button data-vue="prelevements"><span class="ic">💳</span><span>Prélèvements</span></button>
+      <button data-vue="classement"><span class="ic">🏆</span><span>Classement</span></button>
+      <button data-vue="journal"><span class="ic">📜</span><span>Journal</span></button>
+    </nav>
+    <div class="bas">
+      <button class="deco" id="deco"><span class="ic">⏻</span><span>Déconnexion</span></button>
+    </div>
+  </aside>
+
+  <main>
+    <header>
+      <div class="fil">Administration <b id="filVue">/ Tableau de bord</b></div>
+      <div class="prof"><div class="av" id="av">AD</div><span id="nomAdmin">Admin</span></div>
+    </header>
+    <div class="wrap">
+
+      <!-- Tableau de bord -->
+      <div class="vue active" id="v-tableau">
+        <div class="date" id="dDate"></div>
+        <h1>Vue d'ensemble</h1>
+        <div class="stats" id="stats" style="margin-top:18px">
+          <div class="stat"><div class="l">Abonnés</div><div class="v" id="s-ab">—</div></div>
+          <div class="stat"><div class="l">Abonnements actifs</div><div class="v" id="s-act">—</div></div>
+          <div class="stat"><div class="l">Joueurs cette semaine</div><div class="v" id="s-jou">—</div></div>
+          <div class="stat"><div class="l">Parties (7 j)</div><div class="v" id="s-par">—</div></div>
+          <div class="stat"><div class="l">Revenus (30 j)</div><div class="v" id="s-rev">—</div></div>
+        </div>
+      </div>
+
+      <!-- Abonnés -->
+      <div class="vue" id="v-abonnes">
+        <h1>Abonnés</h1>
+        <div class="bloc" style="margin-top:18px">
+          <h2>Liste <input class="rech" id="rechAb" placeholder="pseudo ou numéro…"></h2>
+          <table><thead><tr><th>Pseudo</th><th>Numéro</th><th>Pays</th><th>Statut</th><th>Inscrit</th></tr></thead>
+            <tbody id="tAbonnes"></tbody></table>
+          <div class="vide" id="videAb" style="display:none">Aucun abonné pour le moment.</div>
+        </div>
+      </div>
+
+      <!-- Prélèvements -->
+      <div class="vue" id="v-prelevements">
+        <h1>Prélèvements</h1>
+        <div class="bloc" style="margin-top:18px">
+          <h2>Traçabilité facturation</h2>
+          <table><thead><tr><th>Date</th><th>Montant</th><th>Opérateur</th><th>Référence</th><th>Statut</th></tr></thead>
+            <tbody id="tPrel"></tbody></table>
+          <div class="vide" id="videPrel" style="display:none">Aucun prélèvement enregistré.</div>
+        </div>
+      </div>
+
+      <!-- Classement -->
+      <div class="vue" id="v-classement">
+        <h1>Classement de la semaine</h1>
+        <div class="bloc" style="margin-top:18px">
+          <h2>Meilleurs joueurs</h2>
+          <table><thead><tr><th>Rang</th><th>Pseudo</th><th>Meilleur score</th><th>Parties</th></tr></thead>
+            <tbody id="tClass"></tbody></table>
+          <div class="vide" id="videClass" style="display:none">Aucun score cette semaine.</div>
+        </div>
+      </div>
+
+      <!-- Journal -->
+      <div class="vue" id="v-journal">
+        <h1>Journal d'audit</h1>
+        <div class="bloc" style="margin-top:18px">
+          <h2>Actions récentes</h2>
+          <table><thead><tr><th>Date</th><th>Action</th><th>Cible</th><th>IP</th></tr></thead>
+            <tbody id="tJournal"></tbody></table>
+          <div class="vide" id="videJournal" style="display:none">Journal vide.</div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+  var $=function(i){return document.getElementById(i);};
+  var JETON=localStorage.getItem('ludik_admin_jeton');
+  if(!JETON) location.href='connexion.html';
+  var NOM=localStorage.getItem('ludik_admin_nom')||'Admin';
+  $('nomAdmin').textContent=NOM;
+  $('av').textContent=NOM.slice(0,2).toUpperCase();
+
+  // date du jour
+  var d=new Date();
+  var jn=['DIMANCHE','LUNDI','MARDI','MERCREDI','JEUDI','VENDREDI','SAMEDI'];
+  var mn=['JANVIER','FÉVRIER','MARS','AVRIL','MAI','JUIN','JUILLET','AOÛT','SEPTEMBRE','OCTOBRE','NOVEMBRE','DÉCEMBRE'];
+  $('dDate').textContent=jn[d.getDay()]+' '+d.getDate()+' '+mn[d.getMonth()]+' '+d.getFullYear();
+
+  async function api(url){
+    var r=await fetch('/api'+url,{headers:{'Authorization':'Bearer '+JETON}});
+    if(r.status===401){localStorage.removeItem('ludik_admin_jeton');location.href='connexion.html';return null;}
+    return r.json();
+  }
+  function fmt(n){return (n||0).toLocaleString('fr-FR');}
+  function dateFr(s){try{return new Date(s).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'});}catch(e){return '—';}}
+
+  // navigation
+  document.querySelectorAll('nav button').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('nav button').forEach(function(x){x.classList.remove('actif');});
+      b.classList.add('actif');
+      document.querySelectorAll('.vue').forEach(function(v){v.classList.remove('active');});
+      var vue=b.dataset.vue;
+      $('v-'+vue).classList.add('active');
+      $('filVue').textContent='/ '+b.querySelector('span:last-child').textContent;
+      charger(vue);
+    });
+  });
+  $('deco').addEventListener('click',function(){
+    localStorage.removeItem('ludik_admin_jeton');location.href='connexion.html';
+  });
+
+  // chargement des données par vue
+  var chargees={};
+  async function charger(vue){
+    if(vue==='tableau'){
+      var j=await api('/admin/tableau'); if(!j)return;
+      $('s-ab').textContent=fmt(j.abonnes);
+      $('s-act').textContent=fmt(j.abonnementsActifs);
+      $('s-jou').textContent=fmt(j.joueursSemaine);
+      $('s-par').textContent=fmt(j.partiesSemaine);
+      $('s-rev').innerHTML=fmt(j.revenus30j)+' <small>FCFA</small>';
+    }
+    if(vue==='abonnes'){await chargerAbonnes('');}
+    if(vue==='prelevements'){
+      var j=await api('/admin/prelevements'); if(!j)return;
+      var t=$('tPrel');
+      if(!j.prelevements.length){$('videPrel').style.display='block';t.innerHTML='';return;}
+      $('videPrel').style.display='none';
+      t.innerHTML=j.prelevements.map(function(p){
+        return '<tr><td>'+dateFr(p.cree_le)+'</td><td>'+fmt(p.montant)+' '+p.devise+'</td><td>'+(p.operateur||'—')+
+          '</td><td>'+(p.reference||'—')+'</td><td><span class="puce '+p.statut+'">'+p.statut+'</span></td></tr>';
+      }).join('');
+    }
+    if(vue==='classement'){
+      var j=await api('/admin/classement'); if(!j)return;
+      var t=$('tClass');
+      if(!j.rangs.length){$('videClass').style.display='block';t.innerHTML='';return;}
+      $('videClass').style.display='none';
+      t.innerHTML=j.rangs.map(function(x,i){
+        return '<tr><td>'+(i+1)+'</td><td>'+x.pseudo+'</td><td>'+fmt(x.meilleur)+'</td><td>'+x.parties+'</td></tr>';
+      }).join('');
+    }
+    if(vue==='journal'){
+      var j=await api('/admin/journal'); if(!j)return;
+      var t=$('tJournal');
+      if(!j.journal.length){$('videJournal').style.display='block';t.innerHTML='';return;}
+      $('videJournal').style.display='none';
+      t.innerHTML=j.journal.map(function(l){
+        return '<tr><td>'+dateFr(l.cree_le)+'</td><td>'+l.action+'</td><td>'+(l.cible||'—')+'</td><td>'+(l.ip||'—')+'</td></tr>';
+      }).join('');
+    }
+  }
+  async function chargerAbonnes(q){
+    var j=await api('/admin/abonnes'+(q?('?q='+encodeURIComponent(q)):'')); if(!j)return;
+    var t=$('tAbonnes');
+    if(!j.abonnes.length){$('videAb').style.display='block';t.innerHTML='';return;}
+    $('videAb').style.display='none';
+    t.innerHTML=j.abonnes.map(function(a){
+      return '<tr><td>'+(a.pseudo||'—')+'</td><td>'+a.telephone+'</td><td>'+a.pays+
+        '</td><td><span class="puce '+a.statut+'">'+a.statut+'</span></td><td>'+dateFr(a.cree_le)+'</td></tr>';
+    }).join('');
+  }
+  var tmr;
+  $('rechAb').addEventListener('input',function(e){
+    clearTimeout(tmr); var v=e.target.value;
+    tmr=setTimeout(function(){chargerAbonnes(v);},250);
+  });
+
+  // au démarrage
+  charger('tableau');
+</script>
+</body>
+</html>

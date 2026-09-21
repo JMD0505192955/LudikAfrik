@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Anagrammes Faso</title>
+<style>
+  :root{--vert:#0E7A3C;--rouge:#E32219;--or:#F5C21B;--nuit:#12130F;--craie:#FAF7EF;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:var(--nuit);font-family:"Arial Black","Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:manipulation;
+    user-select:none;-webkit-user-select:none;}
+  header{width:100%;max-width:430px;padding:10px 14px 6px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-size:18px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial,sans-serif;font-weight:400;font-size:8.5px;letter-spacing:2.5px;color:#8b8f84;margin-top:3px;}
+  .scores{text-align:right;line-height:1.25;}
+  .scores .val{font-size:19px;color:var(--or);}
+  .scores .lbl{font-family:Arial,sans-serif;font-size:9px;letter-spacing:2px;color:#8b8f84;}
+  #niveaux{display:flex;gap:6px;justify-content:center;padding:0 14px 8px;width:100%;max-width:430px;}
+  .nivBtn{flex:1;background:#1d1f19;border:1.5px solid #2a2c24;color:#8b8f84;border-radius:999px;
+    padding:7px 4px;font-family:inherit;font-size:11.5px;}
+  .nivBtn.sel{background:var(--or);border-color:var(--or);color:var(--nuit);font-weight:bold;}
+  .nivBtn:active{transform:scale(.96);}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;flex-direction:column;padding:0 14px 10px;}
+  #barreTemps{height:6px;background:#1d1f19;border-radius:99px;overflow:hidden;margin-bottom:12px;}
+  #barreTemps>div{height:100%;background:var(--or);width:100%;transition:width .1s linear;}
+  #cat{text-align:center;font-family:Arial;font-size:11px;letter-spacing:1.5px;color:#8b8f84;
+    text-transform:uppercase;margin-bottom:6px;}
+  #cat b{color:var(--or);}
+  #indice{text-align:center;font-family:Arial;font-size:12.5px;color:#c9ccc0;min-height:34px;
+    margin-bottom:10px;line-height:1.4;font-style:italic;}
+  #zoneRep{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;min-height:52px;margin-bottom:10px;
+    align-content:flex-start;}
+  .slot{width:34px;height:44px;border-radius:8px;background:#1d1f19;border:2px dashed #2a2c24;
+    display:flex;align-items:center;justify-content:center;font-size:21px;color:var(--craie);}
+  .slot.plein{border-style:solid;border-color:var(--or);background:#2a2410;}
+  .slot.bon{border-color:var(--vert);background:#0f2a17;}
+  .slot.faux{border-color:var(--rouge);background:#2e0f0c;animation:secousse .4s;}
+  @keyframes secousse{0%,100%{transform:translateX(0);}25%{transform:translateX(-5px);}75%{transform:translateX(5px);}}
+  #zoneLettres{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:14px;}
+  .lettre{width:40px;height:48px;border-radius:9px;background:#2a2c24;border:1.5px solid #3d4036;
+    color:var(--craie);font-family:inherit;font-size:22px;display:flex;align-items:center;justify-content:center;
+    transition:.12s;}
+  .lettre:active{transform:scale(.92);}
+  .lettre.prise{opacity:.22;pointer-events:none;}
+  #actions{display:flex;gap:8px;margin-bottom:12px;}
+  #actions button{flex:1;background:#1d1f19;border:1px solid #2a2c24;color:var(--craie);
+    border-radius:10px;padding:11px 4px;font-family:inherit;font-size:12px;}
+  #actions button:active{transform:scale(.97);}
+  #actions .valider{background:var(--vert);border-color:var(--vert);font-weight:bold;}
+  #actions .valider:disabled{opacity:.35;}
+  #msg{text-align:center;height:24px;font-size:14px;color:var(--or);}
+  #fin{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,19,15,.95);text-align:center;padding:22px;}
+  #fin h2{font-size:42px;color:var(--or);margin-bottom:4px;}
+  #fin .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;width:100%;max-width:330px;margin:10px 0 18px;}
+  #fin .stat{background:#1d1f19;border-radius:10px;padding:11px 5px;}
+  #fin .stat .v{font-size:20px;font-weight:bold;color:var(--or);}
+  #fin .stat .l{font-size:9.5px;color:#8b8f84;letter-spacing:1px;margin-top:2px;}
+  #fin p{font-family:Arial;font-size:13.5px;color:#c9ccc0;margin-bottom:18px;line-height:1.5;max-width:330px;}
+  #fin button{font-family:inherit;font-size:15px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:13px 34px;}
+  #partageBtns{display:flex;flex-direction:column;gap:8px;width:100%;max-width:300px;margin-bottom:14px;}
+  #partageBtns button{background:#1d1f19;border:1px solid #2a2c24;color:var(--craie);
+    border-radius:10px;padding:11px;font-size:13px;letter-spacing:.3px;}
+  #partageBtns button:active{transform:scale(.97);}
+  #partageBtns #btnPartager{border-color:#25D366;color:#25D366;}
+  #partageBtns #btnDefier{border-color:var(--or);color:var(--or);}
+  footer{width:100%;max-width:430px;padding:6px 14px 10px;text-align:center;
+    font-family:Arial;font-size:10.5px;color:#6c7064;letter-spacing:.5px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">ANAGRAMMES <span>FASO</span><small>REMETS LES LETTRES EN ORDRE</small></div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:30px;height:30px;font-size:13px">🔊</button>
+    <div class="scores"><div class="val" id="score">0</div>
+    <div class="lbl">SÉRIE <span id="serieN">0</span> 🔥</div></div>
+  </div>
+</header>
+<div id="niveaux">
+  <button class="nivBtn sel" data-n="facile">🟢 Facile</button>
+  <button class="nivBtn" data-n="moyen">🟡 Moyen</button>
+  <button class="nivBtn" data-n="expert">🔴 Expert</button>
+</div>
+<div id="wrap">
+  <div id="barreTemps"><div id="jauge"></div></div>
+  <div id="cat">Catégorie : <b id="catNom">—</b></div>
+  <div id="indice">—</div>
+  <div id="zoneRep"></div>
+  <div id="zoneLettres"></div>
+  <div id="actions">
+    <button id="btnEffacer">↺ Effacer</button>
+    <button id="btnMelanger">🔀 Mélanger</button>
+    <button id="btnIndice">💡 Indice</button>
+    <button class="valider" id="btnValider" disabled>VALIDER</button>
+  </div>
+  <div id="msg">Touche les lettres pour composer le mot</div>
+  <div id="fin">
+    <h2 id="finScore"></h2>
+    <div class="stats">
+      <div class="stat"><div class="v" id="fTrouves">0</div><div class="l">TROUVÉS</div></div>
+      <div class="stat"><div class="v" id="fSerie">0</div><div class="l">MEILLEURE</div></div>
+      <div class="stat"><div class="v" id="fNiveau">—</div><div class="l">NIVEAU</div></div>
+    </div>
+    <p id="finTexte"></p>
+    <div id="partageBtns">
+      <button id="btnPartager">📤 Partager mon score</button>
+      <button id="btnDefier">⚔️ Défier un ami</button>
+    </div>
+    <button id="rejouer">REJOUER</button>
+  </div>
+</div>
+<footer>Démo VAS — classement hebdo &amp; lots airtime à venir</footer>
+<script>
+(function(){
+"use strict";
+// ---------- Son ----------
+var actx,muet=false;
+try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+function ac(){if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)();return actx;}
+function tone(f,d,t,v,gl){if(muet)return;try{var c=ac(),o=c.createOscillator(),g=c.createGain();
+o.type=t||'sine';o.frequency.value=f;if(gl)o.frequency.linearRampToValueAtTime(gl,c.currentTime+d);
+g.gain.value=v||0.12;g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+d);
+o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+d);}catch(e){}}
+var tickTimer=null;
+var SFX={
+  tap:function(){tone(440,0.05,'square',0.07);},
+  bon:function(){tone(523,0.09,'sine',0.13);setTimeout(function(){tone(784,0.12,'sine',0.13);},70);},
+  mauvais:function(){tone(160,0.22,'sawtooth',0.11,90);},
+  victoire:function(){[523,659,784,988,1319].forEach(function(f,i){setTimeout(function(){tone(f,0.20,'sine',0.15);},i*100);});},
+  echec:function(){[392,330,262,196].forEach(function(f,i){setTimeout(function(){tone(f,0.28,'sine',0.13);},i*150);});},
+  // tic-tac de suspense quand le temps presse
+  suspense:function(aigu){tone(aigu?900:620,0.055,'square',0.075);},
+  demarrerSuspense:function(){
+    if(tickTimer)return;
+    var alt=false;
+    tickTimer=setInterval(function(){SFX.suspense(alt);alt=!alt;},480);
+  },
+  arreterSuspense:function(){if(tickTimer){clearInterval(tickTimer);tickTimer=null;}},
+  estMuet:function(){return muet;},
+  toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}
+    if(muet)SFX.arreterSuspense();return muet;}
+};
+(function(){var b=document.getElementById('btnSon');
+function m(){b.textContent=SFX.estMuet()?'🔇':'🔊';}m();
+b.addEventListener('click',function(){SFX.toggle();m();});})();
+
+function domConfetti(){
+  var cols=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<26;i++){
+    var el=document.createElement('div'),s=4+Math.random()*4;
+    el.style.cssText='position:fixed;z-index:60;pointer-events:none;border-radius:2px;';
+    el.style.width=s+'px';el.style.height=s+'px';el.style.background=cols[i%cols.length];
+    el.style.left=(window.innerWidth/2+(Math.random()-0.5)*70)+'px';el.style.top='40%';
+    document.body.appendChild(el);
+    var dx=(Math.random()-0.5)*260,dy=200+Math.random()*200,r=Math.random()*720-360,d=900+Math.random()*500;
+    el.animate([{transform:'translate(0,0) rotate(0)',opacity:1},
+      {transform:'translate('+dx+'px,'+dy+'px) rotate('+r+'deg)',opacity:0}],
+      {duration:d,easing:'cubic-bezier(.25,.46,.45,.94)'});
+    (function(e,t){setTimeout(function(){e.remove();},t+50);})(el,d);
+  }
+}
+
+// ================= BANQUE DE MOTS (Afrique de l'Ouest) =================
+// {m: mot, c: catégorie, i: indice}
+var BANQUE=[
+// --- CAPITALES & PAYS ---
+{m:'DAKAR',c:'Capitales',i:"Capitale du Sénégal, sur la presqu'île du Cap-Vert"},
+{m:'BAMAKO',c:'Capitales',i:"Capitale du Mali, sur les rives du Niger"},
+{m:'ACCRA',c:'Capitales',i:"Capitale du Ghana, au bord du golfe de Guinée"},
+{m:'LOME',c:'Capitales',i:"Capitale du Togo, ville portuaire"},
+{m:'NIAMEY',c:'Capitales',i:"Capitale du Niger, sur le fleuve du même nom"},
+{m:'CONAKRY',c:'Capitales',i:"Capitale de la Guinée"},
+{m:'ABIDJAN',c:'Capitales',i:"Capitale économique de la Côte d'Ivoire"},
+{m:'COTONOU',c:'Capitales',i:"Plus grande ville du Bénin"},
+{m:'PORTONOVO',c:'Capitales',i:"Capitale officielle du Bénin"},
+{m:'MONROVIA',c:'Capitales',i:"Capitale du Liberia"},
+{m:'FREETOWN',c:'Capitales',i:"Capitale de la Sierra Leone"},
+{m:'BISSAU',c:'Capitales',i:"Capitale de la Guinée-Bissau"},
+{m:'BANJUL',c:'Capitales',i:"Capitale de la Gambie"},
+{m:'PRAIA',c:'Capitales',i:"Capitale du Cap-Vert"},
+{m:'OUAGADOUGOU',c:'Capitales',i:"Capitale du Burkina Faso"},
+{m:'YAMOUSSOUKRO',c:'Capitales',i:"Capitale politique de la Côte d'Ivoire"},
+{m:'NOUAKCHOTT',c:'Capitales',i:"Capitale de la Mauritanie"},
+{m:'MALI',c:'Capitales',i:"Pays du Sahel, ancien grand empire"},
+{m:'GHANA',c:'Capitales',i:"Pays anglophone du golfe de Guinée"},
+{m:'TOGO',c:'Capitales',i:"Étroit pays entre Ghana et Bénin"},
+{m:'BENIN',c:'Capitales',i:"Pays du golfe, berceau du vodun"},
+{m:'NIGERIA',c:'Capitales',i:"Pays le plus peuplé d'Afrique"},
+{m:'SENEGAL',c:'Capitales',i:"Pays de la Teranga"},
+{m:'GUINEE',c:'Capitales',i:"Pays du mont Nimba et de la bauxite"},
+{m:'LIBERIA',c:'Capitales',i:"Pays fondé par des affranchis"},
+// --- VILLES ---
+{m:'BOBO',c:'Villes',i:"Deuxième ville du Burkina, dite Dioulasso"},
+{m:'KAYES',c:'Villes',i:"Ville malienne réputée pour sa chaleur"},
+{m:'THIES',c:'Villes',i:"Grande ville sénégalaise près de Dakar"},
+{m:'TAMALE',c:'Villes',i:"Grande ville du nord du Ghana"},
+{m:'KANO',c:'Villes',i:"Grande cité historique du nord du Nigeria"},
+{m:'SEGOU',c:'Villes',i:"Ville malienne sur le fleuve Niger"},
+{m:'MOPTI',c:'Villes',i:"Venise du Mali, au confluent des fleuves"},
+{m:'BANFORA',c:'Villes',i:"Ville burkinabè près des cascades et des dômes"},
+{m:'KOUDOUGOU',c:'Villes',i:"Troisième ville du Burkina Faso"},
+{m:'TOMBOUCTOU',c:'Villes',i:"Cité malienne des manuscrits et du désert"},
+{m:'KUMASI',c:'Villes',i:"Capitale du royaume ashanti au Ghana"},
+{m:'ZIGUINCHOR',c:'Villes',i:"Capitale de la Casamance sénégalaise"},
+{m:'KAOLACK',c:'Villes',i:"Ville sénégalaise du bassin arachidier"},
+{m:'BOUAKE',c:'Villes',i:"Deuxième ville de Côte d'Ivoire"},
+{m:'DJENNE',c:'Villes',i:"Ville malienne à la grande mosquée de terre"},
+{m:'GAO',c:'Villes',i:"Ancienne capitale de l'empire songhaï"},
+{m:'TAKORADI',c:'Villes',i:"Port du sud-ouest ghanéen"},
+{m:'PARAKOU',c:'Villes',i:"Grande ville du nord du Bénin"},
+{m:'KARA',c:'Villes',i:"Deuxième ville du Togo"},
+{m:'FADA',c:'Villes',i:"Chef-lieu de l'est burkinabè (N'Gourma)"},
+// --- FLEUVES & EAU ---
+{m:'NIGER',c:'Fleuves',i:"Grand fleuve traversant le Mali et le Niger"},
+{m:'VOLTA',c:'Fleuves',i:"Fleuve du Ghana, avec son grand lac"},
+{m:'SENEGAL',c:'Fleuves',i:"Fleuve frontière entre deux pays homonymes"},
+{m:'GAMBIE',c:'Fleuves',i:"Fleuve qui a donné son nom à un pays"},
+{m:'MOUHOUN',c:'Fleuves',i:"Principal cours d'eau du Burkina Faso"},
+{m:'BANDAMA',c:'Fleuves',i:"Fleuve ivoirien traversant le pays du nord au sud"},
+{m:'COMOE',c:'Fleuves',i:"Fleuve et parc national ivoirien"},
+{m:'SASSANDRA',c:'Fleuves',i:"Fleuve de l'ouest ivoirien"},
+{m:'CASAMANCE',c:'Fleuves',i:"Fleuve du sud du Sénégal"},
+{m:'BANI',c:'Fleuves',i:"Principal affluent du Niger au Mali"},
+{m:'LAGUNE',c:'Fleuves',i:"Étendue d'eau côtière, comme à Abidjan"},
+{m:'DELTA',c:'Fleuves',i:"Zone où le fleuve se divise avant la mer"},
+{m:'BARRAGE',c:'Fleuves',i:"Ouvrage retenant l'eau, comme Akosombo"},
+{m:'CASCADE',c:'Fleuves',i:"Chute d'eau, comme celles de Karfiguéla"},
+{m:'MARIGOT',c:'Fleuves',i:"Bras d'eau stagnante en zone tropicale"},
+// --- RELIEFS & NATURE ---
+{m:'SAHEL',c:'Reliefs',i:"Bande semi-aride au sud du Sahara"},
+{m:'SAHARA',c:'Reliefs',i:"Le plus grand désert chaud du monde"},
+{m:'SAVANE',c:'Reliefs',i:"Plaine herbeuse parsemée d'arbres"},
+{m:'DUNE',c:'Reliefs',i:"Colline de sable façonnée par le vent"},
+{m:'FALAISE',c:'Reliefs',i:"Celle de Bandiagara abrite les Dogons"},
+{m:'PLATEAU',c:'Reliefs',i:"Étendue plate en altitude"},
+{m:'BAOBAB',c:'Reliefs',i:"Arbre emblématique au tronc massif"},
+{m:'KARITE',c:'Reliefs',i:"Arbre dont on tire un beurre précieux"},
+{m:'NERE',c:'Reliefs',i:"Arbre dont les graines donnent le soumbala"},
+{m:'ACACIA',c:'Reliefs',i:"Arbre épineux typique du Sahel"},
+{m:'MANGROVE',c:'Reliefs',i:"Forêt de palétuviers en bord de mer"},
+{m:'HARMATTAN',c:'Reliefs',i:"Vent sec et poussiéreux venu du désert"},
+{m:'LATERITE',c:'Reliefs',i:"Terre rouge caractéristique de la région"},
+{m:'OASIS',c:'Reliefs',i:"Îlot de verdure au milieu du désert"},
+{m:'PITON',c:'Reliefs',i:"Sommet rocheux isolé et pointu"},
+{m:'SINGOU',c:'Reliefs',i:"Réserve naturelle de l'est du Burkina"},
+{m:'NIMBA',c:'Reliefs',i:"Mont partagé entre Guinée, Liberia et Côte d'Ivoire"},
+// --- PLATS & BOISSONS ---
+{m:'ATTIEKE',c:'Plats',i:"Semoule de manioc ivoirienne"},
+{m:'THIEBOU',c:'Plats',i:"Riz au poisson sénégalais (thieboudienne)"},
+{m:'FOUTOU',c:'Plats',i:"Pâte de banane ou d'igname pilée"},
+{m:'MAFE',c:'Plats',i:"Sauce à l'arachide très populaire"},
+{m:'TO',c:'Plats',i:"Pâte de mil, plat de base au Burkina"},
+{m:'YASSA',c:'Plats',i:"Poulet mariné à l'oignon et au citron"},
+{m:'ALLOCO',c:'Plats',i:"Bananes plantains frites"},
+{m:'KEDJENOU',c:'Plats',i:"Poulet mijoté ivoirien en canari"},
+{m:'DEGUE',c:'Plats',i:"Dessert au mil et lait fermenté"},
+{m:'BISSAP',c:'Plats',i:"Boisson rouge à base d'hibiscus"},
+{m:'SOUMBALA',c:'Plats',i:"Condiment fermenté à base de néré"},
+{m:'GARBA',c:'Plats',i:"Thon frit et attiéké, plat de rue ivoirien"},
+{m:'FONIO',c:'Plats',i:"Céréale fine et ancienne du Sahel"},
+{m:'IGNAME',c:'Plats',i:"Tubercule fêté chaque année dans plusieurs pays"},
+{m:'MANIOC',c:'Plats',i:"Racine dont on tire farine et semoule"},
+{m:'GOMBO',c:'Plats',i:"Légume vert qui rend la sauce filante"},
+{m:'ARACHIDE',c:'Plats',i:"Légumineuse à la base de nombreuses sauces"},
+{m:'DOLO',c:'Plats',i:"Bière de mil traditionnelle"},
+{m:'GNAMAKOUDJI',c:'Plats',i:"Jus de gingembre bien relevé"},
+{m:'BABENDA',c:'Plats',i:"Plat burkinabè de feuilles et de riz"},
+{m:'RIZGRAS',c:'Plats',i:"Riz cuisiné dans une sauce tomate au Burkina"},
+{m:'BEIGNET',c:'Plats',i:"Pâte frite vendue au coin de la rue"},
+{m:'KOSSAM',c:'Plats',i:"Lait caillé peul"},
+{m:'BROCHETTE',c:'Plats',i:"Viande grillée sur pique, très populaire le soir"},
+{m:'PLANTAIN',c:'Plats',i:"Banane à cuire, base de l'alloco"},
+{m:'PIMENT',c:'Plats',i:"Il réveille toutes les sauces"},
+// --- FOOT ---
+{m:'ETALONS',c:'Foot',i:"Surnom de l'équipe nationale du Burkina"},
+{m:'LIONS',c:'Foot',i:"Surnom de l'équipe du Sénégal (de la Teranga)"},
+{m:'ELEPHANTS',c:'Foot',i:"Surnom de l'équipe de Côte d'Ivoire"},
+{m:'AIGLES',c:'Foot',i:"Surnom de l'équipe du Mali"},
+{m:'SYLI',c:'Foot',i:"Surnom de l'équipe de Guinée (l'éléphant)"},
+{m:'ECUREUILS',c:'Foot',i:"Surnom de l'équipe du Bénin"},
+{m:'EPERVIERS',c:'Foot',i:"Surnom de l'équipe du Togo"},
+{m:'DROGBA',c:'Foot',i:"Légende ivoirienne du football"},
+{m:'MANE',c:'Foot',i:"Star sénégalaise, ailier redoutable"},
+{m:'TOURE',c:'Foot',i:"Nom de deux frères ivoiriens célèbres"},
+{m:'ADEBAYOR',c:'Foot',i:"Grand buteur togolais"},
+{m:'PENALTY',c:'Foot',i:"Tir de réparation à onze mètres"},
+{m:'GARDIEN',c:'Foot',i:"Il défend la cage"},
+{m:'ARBITRE',c:'Foot',i:"Il siffle et distribue les cartons"},
+{m:'STADE',c:'Foot',i:"Enceinte où se joue le match"},
+{m:'CORNER',c:'Foot',i:"Coup de pied de coin"},
+{m:'TITULAIRE',c:'Foot',i:"Joueur qui commence la rencontre"},
+{m:'ATTAQUANT',c:'Foot',i:"Il est chargé de marquer"},
+{m:'DEFENSEUR',c:'Foot',i:"Il protège son camp"},
+{m:'CAPITAINE',c:'Foot',i:"Il porte le brassard"},
+{m:'TRANSVERSALE',c:'Foot',i:"Barre horizontale du but"},
+{m:'DRIBBLE',c:'Foot',i:"Art d'éliminer son adversaire balle au pied"},
+{m:'TACLE',c:'Foot',i:"Intervention glissée pour reprendre le ballon"},
+{m:'MAILLOT',c:'Foot',i:"Il porte les couleurs de l'équipe"},
+{m:'SELECTION',c:'Foot',i:"L'équipe nationale"},
+// --- CULTURE & MUSIQUE ---
+{m:'BALAFON',c:'Culture',i:"Xylophone traditionnel ouest-africain"},
+{m:'DJEMBE',c:'Culture',i:"Tambour joué à mains nues"},
+{m:'KORA',c:'Culture',i:"Harpe-luth des griots mandingues"},
+{m:'NGONI',c:'Culture',i:"Luth traditionnel mandingue"},
+{m:'TAMA',c:'Culture',i:"Tambour d'aisselle qui parle"},
+{m:'BOGOLAN',c:'Culture',i:"Tissu malien teint à la boue"},
+{m:'PAGNE',c:'Culture',i:"Étoffe portée nouée à la taille"},
+{m:'BOUBOU',c:'Culture',i:"Ample vêtement traditionnel"},
+{m:'GRIOT',c:'Culture',i:"Conteur et gardien de la mémoire"},
+{m:'AWALE',c:'Culture',i:"Jeu de graines et de cases creusées"},
+{m:'MASQUE',c:'Culture',i:"Objet rituel porté lors des cérémonies"},
+{m:'TAMTAM',c:'Culture',i:"Tambour qui fait danser les fêtes"},
+{m:'CAURIS',c:'Culture',i:"Coquillages servant jadis de monnaie"},
+{m:'FESPACO',c:'Culture',i:"Festival de cinéma de Ouagadougou"},
+{m:'SIAO',c:'Culture',i:"Salon de l'artisanat de Ouagadougou"},
+{m:'MBALAX',c:'Culture',i:"Musique populaire sénégalaise"},
+{m:'COUPEDECALE',c:'Culture',i:"Musique et danse ivoiriennes festives"},
+{m:'AFROBEAT',c:'Culture',i:"Genre musical né au Nigeria"},
+{m:'DOGON',c:'Culture',i:"Peuple des falaises maliennes"},
+{m:'PEUL',c:'Culture',i:"Peuple d'éleveurs nomades du Sahel"},
+{m:'MOSSI',c:'Culture',i:"Principal groupe ethnique du Burkina"},
+{m:'BAMBARA',c:'Culture',i:"Langue et peuple du Mali"},
+{m:'WOLOF',c:'Culture',i:"Principale langue du Sénégal"},
+{m:'DIOULA',c:'Culture',i:"Langue véhiculaire du commerce en Afrique de l'Ouest"},
+{m:'MOORE',c:'Culture',i:"Langue principale du Burkina Faso"},
+{m:'CALEBASSE',c:'Culture',i:"Récipient fait d'une courge séchée"},
+{m:'CANARI',c:'Culture',i:"Jarre en terre qui garde l'eau fraîche"},
+// --- ANIMAUX ---
+{m:'LION',c:'Animaux',i:"Roi de la savane"},
+{m:'ELEPHANT',c:'Animaux',i:"Le plus grand mammifère terrestre"},
+{m:'GIRAFE',c:'Animaux',i:"Elle broute la cime des acacias"},
+{m:'HIPPOPOTAME',c:'Animaux',i:"Géant des fleuves africains"},
+{m:'CROCODILE',c:'Animaux',i:"Sacré dans certains villages du Burkina"},
+{m:'ANTILOPE',c:'Animaux',i:"Elle bondit dans la savane"},
+{m:'PHACOCHERE',c:'Animaux',i:"Sanglier africain à défenses recourbées"},
+{m:'AGOUTI',c:'Animaux',i:"Rongeur de brousse très apprécié"},
+{m:'CALAO',c:'Animaux',i:"Oiseau au grand bec caractéristique"},
+{m:'AUTRUCHE',c:'Animaux',i:"Le plus grand oiseau, il ne vole pas"},
+{m:'PINTADE',c:'Animaux',i:"Volaille tachetée du poulailler africain"},
+{m:'BUFFLE',c:'Animaux',i:"Bovidé sauvage puissant et grégaire"},
+{m:'HYENE',c:'Animaux',i:"Charognard au rire glaçant"},
+{m:'PANTHERE',c:'Animaux',i:"Grand félin tacheté et discret"},
+{m:'CHAMEAU',c:'Animaux',i:"Vaisseau du désert à deux bosses"},
+{m:'DROMADAIRE',c:'Animaux',i:"Cousin du chameau, à une seule bosse"},
+{m:'SINGE',c:'Animaux',i:"Primate malicieux des forêts"},
+{m:'VAUTOUR',c:'Animaux',i:"Il plane au-dessus des carcasses"},
+{m:'SCORPION',c:'Animaux',i:"Arachnide à la queue venimeuse"},
+{m:'TERMITE',c:'Animaux',i:"Insecte bâtisseur de hautes cathédrales de terre"},
+// --- VIE QUOTIDIENNE ---
+{m:'MARCHE',c:'Quotidien',i:"Lieu d'échange et de marchandage"},
+{m:'MAQUIS',c:'Quotidien',i:"Restaurant populaire de plein air"},
+{m:'TAXI',c:'Quotidien',i:"Véhicule jaune ou vert qu'on hèle en ville"},
+{m:'MOTO',c:'Quotidien',i:"Deux-roues omniprésent à Ouaga"},
+{m:'ZEMIDJAN',c:'Quotidien',i:"Moto-taxi béninoise"},
+{m:'BOUTIQUE',c:'Quotidien',i:"Petit commerce de quartier"},
+{m:'TONTINE',c:'Quotidien',i:"Épargne collective entre proches"},
+{m:'BANCO',c:'Quotidien',i:"Terre crue utilisée pour bâtir"},
+{m:'CONCESSION',c:'Quotidien',i:"Ensemble de cases d'une même famille"},
+{m:'PIROGUE',c:'Quotidien',i:"Barque effilée des fleuves et lagunes"},
+{m:'CHARRETTE',c:'Quotidien',i:"Tirée par un âne, elle transporte tout"},
+{m:'GRIS',c:'Quotidien',i:"Amulette protectrice (gris-gris)"},
+{m:'PALABRE',c:'Quotidien',i:"Discussion sous l'arbre du village"},
+{m:'TERANGA',c:'Quotidien',i:"Hospitalité sénégalaise légendaire"},
+{m:'BRAISE',c:'Quotidien',i:"Elle chauffe le thé et les brochettes"},
+{m:'ATTIEKEBAR',c:'Quotidien',i:"Échoppe où l'on mange sur le pouce"},
+{m:'CANARIEAU',c:'Quotidien',i:"Jarre qui rafraîchit l'eau naturellement"},
+{m:'NATTE',c:'Quotidien',i:"On s'assoit ou dort dessus"},
+{m:'MORTIER',c:'Quotidien',i:"On y pile le mil avec un pilon"},
+{m:'PILON',c:'Quotidien',i:"Bâton pour écraser les céréales"},
+];
+
+var NIVEAUX={
+  facile:{nom:'Facile',min:3,max:5,coef:0.8,pts:60},
+  moyen: {nom:'Moyen', min:6,max:7,coef:1.0,pts:90},
+  expert:{nom:'Expert',min:8,max:20,coef:1.5,pts:130},
+};
+var niveau='facile';
+try{var nv=localStorage.getItem('fasogames_ana_niv');if(nv&&NIVEAUX[nv])niveau=nv;}catch(e){}
+function N(){return NIVEAUX[niveau];}
+
+var $=function(i){return document.getElementById(i);};
+var DUREE=30;
+var motCourant,lettresMel,composition,score,serie,meilleureSerie,trouves,tempsRestant,timer,over,indiceUtilise;
+var pioche=[], dejaVus=[];
+
+function motsDuNiveau(){
+  var n=N();
+  return BANQUE.filter(function(x){return x.m.length>=n.min&&x.m.length<=n.max;});
+}
+function melanger(t){
+  var a=t.slice();
+  for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=a[i];a[i]=a[j];a[j]=tmp;}
+  return a;
+}
+function preparerPioche(){
+  // tirage SANS REMISE : on mélange tous les mots du niveau une fois pour la session
+  pioche=melanger(motsDuNiveau());
+  dejaVus=[];
+}
+function nouveauMot(){
+  if(!pioche.length)preparerPioche(); // sécurité : si tout a été vu, on repart d'un nouveau mélange
+  motCourant=pioche.shift();
+  dejaVus.push(motCourant.m);
+  // mélanger jusqu'à ce que ce ne soit pas le mot lui-même
+  var essais=0;
+  do{ lettresMel=melanger(motCourant.m.split('')); essais++; }
+  while(lettresMel.join('')===motCourant.m && essais<20);
+  composition=[];
+  indiceUtilise=false;
+  $('catNom').textContent=motCourant.c;
+  $('indice').textContent='« '+motCourant.i+' »';
+  rendre();
+}
+function rendre(){
+  // emplacements de réponse
+  var zr=$('zoneRep'); zr.innerHTML='';
+  for(var i=0;i<motCourant.m.length;i++){
+    var d=document.createElement('div');
+    d.className='slot'+(composition[i]!==undefined?' plein':'');
+    d.textContent=composition[i]!==undefined?lettresMel[composition[i]]:'';
+    (function(pos){
+      d.addEventListener('click',function(){retirerA(pos);});
+    })(i);
+    zr.appendChild(d);
+  }
+  // lettres disponibles
+  var zl=$('zoneLettres'); zl.innerHTML='';
+  lettresMel.forEach(function(L,idx){
+    var b=document.createElement('button');
+    b.className='lettre'+(composition.indexOf(idx)!==-1?' prise':'');
+    b.textContent=L;
+    b.addEventListener('click',function(){ajouter(idx);});
+    zl.appendChild(b);
+  });
+  $('btnValider').disabled = composition.length!==motCourant.m.length;
+}
+function ajouter(idx){
+  if(over)return;
+  if(composition.indexOf(idx)!==-1)return;
+  if(composition.length>=motCourant.m.length)return;
+  composition.push(idx);
+  SFX.tap();
+  rendre();
+  if(composition.length===motCourant.m.length)verifier();
+}
+function retirerA(pos){
+  if(over)return;
+  if(composition[pos]===undefined)return;
+  composition.splice(pos,1);
+  SFX.tap();
+  rendre();
+}
+function motCompose(){
+  return composition.map(function(i){return lettresMel[i];}).join('');
+}
+function verifier(){
+  var prop=motCompose();
+  var slots=$('zoneRep').children;
+  if(prop===motCourant.m){
+    for(var i=0;i<slots.length;i++)slots[i].className='slot bon';
+    trouves++; serie++;
+    if(serie>meilleureSerie)meilleureSerie=serie;
+    var pts=Math.round((N().pts+Math.min(60,(serie-1)*15))*(indiceUtilise?0.6:1));
+    score+=pts;
+    $('score').textContent=score;$('serieN').textContent=serie;
+    $('msg').textContent='✅ '+motCourant.m+' — +'+pts+' pts'+(serie>=3?' (série x'+serie+' 🔥)':'');
+    SFX.bon();
+    setTimeout(function(){if(!over&&tempsRestant>0)nouveauMot();},900);
+  }else{
+    for(var j=0;j<slots.length;j++)slots[j].className='slot faux';
+    serie=0;$('serieN').textContent='0';
+    $('msg').textContent='❌ Ce n\'est pas le bon mot';
+    SFX.mauvais();
+    setTimeout(function(){composition=[];rendre();$('msg').textContent='Réessaie !';},700);
+  }
+}
+function reset(){
+  SFX.arreterSuspense();
+  score=0;serie=0;meilleureSerie=0;trouves=0;tempsRestant=DUREE;over=false;
+  preparerPioche();
+  $('score').textContent='0';$('serieN').textContent='0';
+  $('fin').style.display='none';
+  $('msg').textContent='Touche les lettres pour composer le mot';
+  majBoutons();
+  nouveauMot();
+  $('jauge').style.width='100%';$('jauge').style.background='#F5C21B';
+  clearInterval(timer);
+  timer=setInterval(tick,100);
+}
+function tick(){
+  tempsRestant-=0.1;
+  $('jauge').style.width=Math.max(0,tempsRestant/DUREE*100)+'%';
+  $('jauge').style.background=tempsRestant<8?'#E32219':'#F5C21B';
+  if(tempsRestant<=8&&tempsRestant>0)SFX.demarrerSuspense();
+  if(tempsRestant<=0){clearInterval(timer);SFX.arreterSuspense();terminer();}
+}
+function terminer(){
+  over=true;
+  $('fin').style.display='flex';
+  $('finScore').textContent=score+' pts';
+  $('fTrouves').textContent=trouves;
+  $('fSerie').textContent=meilleureSerie;
+  $('fNiveau').textContent=N().nom;
+  var seuil=Math.round(400*N().coef);
+  $('finTexte').textContent = score>=seuil
+    ? "Mémoire d'éléphant ! Tu connais ton Afrique de l'Ouest."
+    : score>=seuil*0.5
+    ? "Bon score ! Les indices t'aident, mais la vitesse fait la différence."
+    : "Continue à explorer : capitales, plats, fleuves, tout y passe !";
+  if(score>=seuil){SFX.victoire();domConfetti();}
+  else if(score<seuil*0.35){SFX.echec();}
+  var envoi=Math.round(score*N().coef);
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Anagrammes',score:envoi,victoire:score>=seuil},'*');}catch(e){}}
+}
+function majBoutons(){
+  document.querySelectorAll('.nivBtn').forEach(function(b){
+    b.classList.toggle('sel',b.dataset.n===niveau);
+  });
+}
+function changerNiveau(n){
+  if(!NIVEAUX[n])return;
+  niveau=n;
+  try{localStorage.setItem('fasogames_ana_niv',n);}catch(e){}
+  reset();
+}
+document.querySelectorAll('.nivBtn').forEach(function(b){
+  b.addEventListener('click',function(){changerNiveau(b.dataset.n);});
+});
+$('btnEffacer').addEventListener('click',function(){if(over)return;composition=[];SFX.tap();rendre();$('msg').textContent='Recommence la composition';});
+$('btnMelanger').addEventListener('click',function(){
+  if(over)return;
+  var restantes=lettresMel.filter(function(_,i){return composition.indexOf(i)===-1;});
+  var pris=composition.map(function(i){return lettresMel[i];});
+  lettresMel=pris.concat(melanger(restantes));
+  composition=pris.map(function(_,i){return i;});
+  SFX.tap();rendre();
+});
+$('btnIndice').addEventListener('click',function(){
+  if(over||composition.length>=motCourant.m.length)return;
+  // placer la prochaine lettre correcte
+  var pos=composition.length;
+  var cible=motCourant.m[pos];
+  for(var i=0;i<lettresMel.length;i++){
+    if(lettresMel[i]===cible&&composition.indexOf(i)===-1){
+      composition.push(i);indiceUtilise=true;
+      SFX.tap();rendre();
+      $('msg').textContent='💡 Indice utilisé (points réduits)';
+      if(composition.length===motCourant.m.length)verifier();
+      return;
+    }
+  }
+});
+$('rejouer').addEventListener('click',reset);
+
+// ---------- Partage & défi ----------
+var LIEN='https://teal-muffin-8e3f01.netlify.app';
+function messageScore(){
+  return "🔤 J'ai marqué "+score+" pts aux Anagrammes Faso ("+N().nom+", "+trouves+
+    " mots trouvés) ! Capitales, plats, fleuves, foot d'Afrique de l'Ouest. À ton tour de jouer ici 👉 "+LIEN;
+}
+function messageDefi(){
+  return "⚔️ Je te défie aux Anagrammes Faso ! Mon score : "+score+" pts en niveau "+N().nom+
+    ". Bats-moi si tu peux 👉 "+LIEN;
+}
+function envoyer(msg){
+  if(navigator.share){
+    navigator.share({title:'Anagrammes Faso',text:msg,url:LIEN}).catch(function(){});
+  }else{
+    window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+  }
+}
+$('btnPartager').addEventListener('click',function(){SFX.tap();envoyer(messageScore());});
+$('btnDefier').addEventListener('click',function(){SFX.tap();envoyer(messageDefi());});
+
+window.__ana={
+  state:function(){return {score:score,serie:serie,trouves:trouves,tempsRestant:tempsRestant,
+    over:over,niveau:niveau,mot:motCourant?motCourant.m:null,compose:motCompose(),
+    nbLettres:lettresMel?lettresMel.length:0,muet:SFX.estMuet()};},
+  changerNiveau:changerNiveau,
+  resoudre:function(){
+    if(over||!motCourant)return;
+    composition=[];
+    for(var p=0;p<motCourant.m.length;p++){
+      var c=motCourant.m[p];
+      for(var i=0;i<lettresMel.length;i++){
+        if(lettresMel[i]===c&&composition.indexOf(i)===-1){composition.push(i);break;}
+      }
+    }
+    rendre();verifier();
+  },
+  forcerFin:function(){tempsRestant=0;clearInterval(timer);terminer();},
+  nbMots:function(){return motsDuNiveau().length;},
+  msgScore:function(){return messageScore();},
+  msgDefi:function(){return messageDefi();},
+  motsVus:function(){return dejaVus.slice();}
+};
+
+reset();
+})();
+</script>
+</body>
+</html>

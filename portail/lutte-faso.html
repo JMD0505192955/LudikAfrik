@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Lutte Faso</title>
+<style>
+  :root{--vert:#0E7A3C;--rouge:#E32219;--or:#F5C21B;--nuit:#12130F;--craie:#FAF7EF;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:#140f0a;font-family:"Arial Black","Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:none;
+    user-select:none;-webkit-user-select:none;}
+  header{width:100%;max-width:430px;padding:8px 14px 3px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-size:17px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial;font-weight:400;font-size:8.5px;letter-spacing:2.5px;color:#8b8f84;margin-top:3px;}
+  #barres{width:100%;max-width:430px;padding:0 12px 4px;display:flex;align-items:center;gap:8px;}
+  .vieBloc{flex:1;}
+  .vieNom{font-family:Arial;font-size:9.5px;letter-spacing:1px;color:#a89878;margin-bottom:2px;}
+  .vieNom.d{text-align:right;}
+  .vieFond{height:13px;background:#241a12;border:1.5px solid #3a2c1e;border-radius:4px;overflow:hidden;}
+  .vieBarre{height:100%;transition:width .18s;}
+  #vieJ .vieBarre{background:linear-gradient(90deg,#2fa04a,#8fd04a);float:left;}
+  #vieA .vieBarre{background:linear-gradient(270deg,#c0392b,#e8593a);float:right;}
+  #chrono{font-size:20px;color:var(--or);min-width:38px;text-align:center;}
+  #combos{width:100%;max-width:430px;padding:0 12px 3px;display:flex;gap:6px;align-items:center;justify-content:space-between;}
+  #comboTxt{font-family:Arial;font-size:11px;color:var(--or);height:15px;}
+  #manche{font-family:Arial;font-size:10px;letter-spacing:1.5px;color:#a89878;}
+  #msg{height:18px;font-size:12px;text-align:center;color:var(--or);font-family:Arial;}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;justify-content:center;align-items:center;padding:0 8px 6px;}
+  canvas{display:block;border-radius:12px;}
+  #cmd{position:absolute;bottom:10px;left:12px;right:12px;display:flex;justify-content:space-between;
+    align-items:flex-end;pointer-events:none;}
+  .dpad{display:flex;gap:7px;}
+  .btnC{width:54px;height:54px;border-radius:50%;background:rgba(20,15,10,.55);
+    border:2px solid rgba(250,247,239,.3);display:flex;align-items:center;justify-content:center;
+    font-size:20px;pointer-events:auto;color:var(--craie);backdrop-filter:blur(2px);}
+  .btnC:active{transform:scale(.94);}
+  .attaques{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+  #bPoing{background:rgba(227,34,25,.45);border-color:rgba(255,120,100,.5);font-size:19px;}
+  #bPied{background:rgba(245,194,27,.4);border-color:rgba(255,220,120,.5);font-size:19px;}
+  #bSaisie{background:rgba(150,90,200,.4);border-color:rgba(200,150,255,.5);font-size:19px;}
+  #bGarde{background:rgba(60,120,180,.45);border-color:rgba(140,190,240,.5);font-size:19px;}
+  #bGarde.actif{background:rgba(120,190,255,.7);box-shadow:0 0 14px rgba(120,190,255,.6);}
+  #fin{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,12,6,.95);text-align:center;padding:20px;border-radius:12px;}
+  #fin h2{font-size:30px;color:var(--or);margin-bottom:4px;}
+  #fin .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;width:100%;max-width:310px;margin:8px 0 14px;}
+  #fin .stat{background:rgba(245,194,27,.08);border-radius:10px;padding:9px 4px;}
+  #fin .stat .v{font-size:17px;font-weight:bold;color:var(--or);}
+  #fin .stat .l{font-size:8.5px;color:#a89878;letter-spacing:1px;margin-top:2px;}
+  #fin p{font-family:Arial;font-size:12.5px;color:#c9b98f;margin-bottom:13px;line-height:1.5;max-width:310px;}
+  #fin button{font-family:inherit;font-size:14px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:11px 30px;margin-top:4px;}
+  #partageBtns{display:flex;flex-direction:column;gap:6px;width:100%;max-width:280px;margin-bottom:10px;}
+  #partageBtns button{background:rgba(255,255,255,.05);border:1px solid #4a3c28;color:var(--craie);
+    border-radius:10px;padding:9px;font-size:12px;margin:0;}
+  #partageBtns #btnPartager{border-color:#25D366;color:#25D366;}
+  #partageBtns #btnDefier{border-color:var(--or);color:var(--or);}
+  footer{width:100%;max-width:430px;padding:4px 14px 8px;text-align:center;
+    font-family:Arial;font-size:10px;color:#6b5c48;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">LUTTE <span>FASO</span><small>L'ARÈNE DES CHAMPIONS</small></div>
+  <button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:28px;height:28px;font-size:12px">🔊</button>
+</header>
+<div id="barres">
+  <div class="vieBloc" id="vieJ">
+    <div class="vieNom" id="nomJ">TOI</div>
+    <div class="vieFond"><div class="vieBarre" style="width:100%"></div></div>
+  </div>
+  <div id="chrono">60</div>
+  <div class="vieBloc" id="vieA">
+    <div class="vieNom d" id="nomA">ADVERSAIRE</div>
+    <div class="vieFond"><div class="vieBarre" style="width:100%"></div></div>
+  </div>
+</div>
+<div id="combos">
+  <div id="comboTxt"></div>
+  <div id="manche">COMBAT 1/6</div>
+</div>
+<div id="msg">Touche pour frapper, garde pour bloquer</div>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="cmd">
+    <div class="dpad">
+      <div class="btnC" id="bGauche">◀</div>
+      <div class="btnC" id="bDroite">▶</div>
+      <div class="btnC" id="bGarde">🛡</div>
+    </div>
+    <div class="attaques">
+      <div class="btnC" id="bPoing">👊</div>
+      <div class="btnC" id="bPied">🦵</div>
+      <div class="btnC" id="bSaisie">🤼</div>
+      <div class="btnC" id="bSaut">⤴</div>
+    </div>
+  </div>
+  <div id="fin">
+    <h2 id="finTitre"></h2>
+    <div class="stats">
+      <div class="stat"><div class="v" id="fCombat">1/6</div><div class="l">COMBAT</div></div>
+      <div class="stat"><div class="v" id="fCoups">0</div><div class="l">COUPS PORTÉS</div></div>
+      <div class="stat"><div class="v" id="fCombo">0</div><div class="l">MEILLEUR COMBO</div></div>
+    </div>
+    <p id="finTexte"></p>
+    <div id="partageBtns">
+      <button id="btnPartager">📤 Partager mon score</button>
+      <button id="btnDefier">⚔️ Défier un ami</button>
+    </div>
+    <button id="suivant" style="display:none">COMBAT SUIVANT ▶</button>
+    <button id="rejouer">REJOUER</button>
+  </div>
+</div>
+<footer>Démo VAS — classement hebdo &amp; lots airtime à venir</footer>
+<script>
+(function(){
+"use strict";
+// ---------- Son ----------
+var actx,muet=false;
+try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+function ac(){if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)();return actx;}
+function tone(f,d,t,v,gl){if(muet)return;try{var c=ac(),o=c.createOscillator(),g=c.createGain();
+o.type=t||'sine';o.frequency.value=f;if(gl)o.frequency.linearRampToValueAtTime(gl,c.currentTime+d);
+g.gain.value=v||0.10;g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+d);
+o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+d);}catch(e){}}
+var SFX={
+  poing:function(){tone(160,0.07,'square',0.09,90);},
+  pied:function(){tone(130,0.09,'sawtooth',0.10,70);},
+  saisie:function(){tone(90,0.16,'sine',0.11,50);},
+  bloque:function(){tone(700,0.06,'square',0.07,420);},
+  rate:function(){tone(240,0.05,'triangle',0.05,180);},
+  esquive:function(){tone(520,0.07,'sine',0.06,760);},
+  combo:function(n){var b=520+Math.min(5,n)*90;tone(b,0.09,'triangle',0.11,b*1.4);},
+  gong:function(){tone(120,0.6,'sine',0.16,80);setTimeout(function(){tone(180,0.5,'sine',0.10,110);},60);},
+  victoire:function(){[523,659,784,1046,1319].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.13);},i*95);});},
+  defaite:function(){[392,311,247,196].forEach(function(f,i){setTimeout(function(){tone(f,0.28,'sine',0.12);},i*155);});},
+  estMuet:function(){return muet;},
+  toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+};
+(function(){var b=document.getElementById('btnSon');
+function m(){b.textContent=SFX.estMuet()?'🔇':'🔊';}m();
+b.addEventListener('click',function(){SFX.toggle();m();});})();
+
+function domConfetti(){
+  var cols=['#F5C21B','#E32219','#0E7A3C','#8fd04a','#FAF7EF'];
+  for(var i=0;i<26;i++){
+    var el=document.createElement('div'),s=4+Math.random()*4;
+    el.style.cssText='position:fixed;z-index:60;pointer-events:none;border-radius:2px;';
+    el.style.width=s+'px';el.style.height=s+'px';el.style.background=cols[i%cols.length];
+    el.style.left=(window.innerWidth/2+(Math.random()-0.5)*70)+'px';el.style.top='40%';
+    document.body.appendChild(el);
+    var dx=(Math.random()-0.5)*250,dy=190+Math.random()*190,r=Math.random()*700-350,d=900+Math.random()*500;
+    el.animate([{transform:'translate(0,0) rotate(0)',opacity:1},
+      {transform:'translate('+dx+'px,'+dy+'px) rotate('+r+'deg)',opacity:0}],
+      {duration:d,easing:'cubic-bezier(.25,.46,.45,.94)'});
+    (function(e,t){setTimeout(function(){e.remove();},t+50);})(el,d);
+  }
+}
+
+var cvs=document.getElementById('c'), ctx=cvs.getContext('2d');
+var $=function(i){return document.getElementById(i);};
+
+// ================= ADVERSAIRES =================
+var ADVERSAIRES=[
+  {nom:'Souleymane',  pv:100, force:0.85, vitesse:0.75, agressif:0.35, garde:0.20,
+   pagne:'#C0392B', peau:'#8d6535', coef:0.8, desc:'Le débutant du village'},
+  {nom:'Boukary',     pv:110, force:0.95, vitesse:0.85, agressif:0.45, garde:0.28,
+   pagne:'#2874A6', peau:'#7d5527', coef:1.0, desc:'Rapide et têtu'},
+  {nom:'Ousmane',     pv:120, force:1.05, vitesse:0.95, agressif:0.55, garde:0.36,
+   pagne:'#196F3D', peau:'#96703f', coef:1.2, desc:'Il garde bien'},
+  {nom:'Yacouba',     pv:130, force:1.15, vitesse:1.05, agressif:0.62, garde:0.42,
+   pagne:'#7D3C98', peau:'#6b4522', coef:1.4, desc:'Le colosse de Kaya'},
+  {nom:'Drissa',      pv:140, force:1.25, vitesse:1.15, agressif:0.70, garde:0.48,
+   pagne:'#B9770E', peau:'#8d6535', coef:1.7, desc:'Invaincu depuis 3 saisons'},
+  {nom:'Le Lion',     pv:160, force:1.4,  vitesse:1.25, agressif:0.78, garde:0.55,
+   pagne:'#1C2833', peau:'#5d3a1a', coef:2.2, desc:'Champion national'},
+];
+var combatIdx=0, maxDebloque=0, scoreCumul=0;
+try{
+  var s1=parseInt(localStorage.getItem('fasogames_lutte_combat')||'0',10);
+  if(s1>=0&&s1<ADVERSAIRES.length)combatIdx=s1;
+  maxDebloque=parseInt(localStorage.getItem('fasogames_lutte_max')||'0',10)||0;
+  scoreCumul=parseInt(localStorage.getItem('fasogames_lutte_cumul')||'0',10)||0;
+}catch(e){}
+function ADV(){return ADVERSAIRES[combatIdx];}
+
+// ================= ATTAQUES =================
+var COUPS={
+  poing:  {degats:7,  portee:82, prepa:7,  actif:6,  recup:11, recul:2.5, nom:'Poing'},
+  pied:   {degats:11, portee:102,prepa:12, actif:7,  recup:17, recul:4.0, nom:'Pied'},
+  saisie: {degats:15, portee:62, prepa:16, actif:8,  recup:24, recul:7.0, nom:'Saisie', imparable:true},
+};
+
+// ================= ÉTAT =================
+var W=0,H=0,DPR=1,SOL=0;
+var joueur,adv,particules,over,gagne,tempsRestant,tDernier;
+var coupsPortes,combo,meilleurCombo,comboT;
+var gauche=false,droite=false,gardeActive=false,sautDemande=false;
+// --- effets d'impact ---
+var hitStop=0;        // gel de quelques frames à la touche
+var secousse=0;       // tremblement de l'écran
+var flashEcran=0;     // éclair blanc bref
+var ralenti=0;        // ralenti sur le coup final
+var texteImpact=null; // "PAF !" qui s'affiche à l'impact
+var attaqueDemandee=null;
+
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  var r=cvs.parentElement.getBoundingClientRect();
+  W=Math.min(r.width-4,414);
+  H=Math.min(r.height-4, W*1.02);
+  cvs.style.width=W+'px';cvs.style.height=H+'px';
+  cvs.width=W*DPR;cvs.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  SOL=H*0.84;
+}
+window.addEventListener('resize',function(){resize();});
+
+function nouveauLutteur(x,estJoueur){
+  var A=ADV();
+  return {
+    x:x, y:SOL, vx:0, vy:0, sol:true,
+    pvMax: estJoueur?120:A.pv,
+    pv:    estJoueur?120:A.pv,
+    regard: estJoueur?1:-1,
+    etat:'repos',      // repos | attaque | touche | garde | saut
+    coup:null, tCoup:0, aTouche:false,
+    garde:false, recul:0, invuln:0,
+    anim:0, joueur:!!estJoueur,
+    pagne: estJoueur?'#F5C21B':A.pagne,
+    peau:  estJoueur?'#a8763f':A.peau,
+    // IA
+    tDecision:0, intention:'approche'
+  };
+}
+function reset(){
+  resize();
+  var A=ADV();
+  joueur=nouveauLutteur(W*0.30,true);
+  adv=nouveauLutteur(W*0.70,false);
+  particules=[];
+  over=false;gagne=false;
+  tempsRestant=60;tDernier=Date.now();
+  coupsPortes=0;combo=0;meilleurCombo=0;comboT=0;
+  gauche=droite=gardeActive=sautDemande=false;attaqueDemandee=null;
+  hitStop=0;secousse=0;flashEcran=0;ralenti=0;texteImpact=null;
+  $('nomA').textContent=A.nom.toUpperCase();
+  $('manche').textContent='COMBAT '+(combatIdx+1)+'/'+ADVERSAIRES.length;
+  $('fin').style.display='none';
+  $('comboTxt').textContent='';
+  $('msg').textContent=A.nom+' — '+A.desc;
+  $('bGarde').classList.remove('actif');
+  majBarres();
+  SFX.gong();
+}
+function majBarres(){
+  $('vieJ').querySelector('.vieBarre').style.width=Math.max(0,joueur.pv/joueur.pvMax*100)+'%';
+  $('vieA').querySelector('.vieBarre').style.width=Math.max(0,adv.pv/adv.pvMax*100)+'%';
+  $('chrono').textContent=Math.max(0,Math.ceil(tempsRestant));
+}
+
+// ================= LOGIQUE DE COMBAT =================
+function lancerCoup(l,type){
+  if(l.etat!=='repos'||l.recul>0)return false;
+  l.etat='attaque';l.coup=type;l.tCoup=0;l.aTouche=false;
+  return true;
+}
+function majLutteur(l,cible,dt){
+  if(l.recul>0){
+    l.x+=l.recul*(l.regard>0?-1:1)*0.6*dt;
+    l.recul*=Math.pow(0.86,dt);
+    if(l.recul<0.2)l.recul=0;
+  }
+  if(l.invuln>0)l.invuln-=dt;
+
+  // orientation : toujours face à l'adversaire
+  l.regard=(cible.x>l.x)?1:-1;
+
+  // gravité
+  if(!l.sol||l.vy!==0){
+    l.vy+=0.62*dt;
+    l.y+=l.vy*dt;
+    if(l.y>=SOL){l.y=SOL;l.vy=0;l.sol=true;if(l.etat==='saut')l.etat='repos';}
+  }
+
+  if(l.etat==='attaque'){
+    var C=COUPS[l.coup];
+    l.tCoup+=dt;
+    // phase active : on teste la touche
+    if(l.tCoup>=C.prepa&&l.tCoup<C.prepa+C.actif&&!l.aTouche){
+      var d=Math.abs(cible.x-l.x);
+      var memeHauteur=Math.abs(cible.y-l.y)<50;
+      if(d<C.portee&&memeHauteur&&(cible.x-l.x)*l.regard>0){
+        l.aTouche=true;
+        toucher(l,cible,C);
+      }
+    }
+    if(l.tCoup>=C.prepa+C.actif+C.recup){
+      l.etat='repos';l.coup=null;l.tCoup=0;
+    }
+    return;
+  }
+  if(l.etat==='touche'){
+    l.tCoup+=dt;
+    if(l.tCoup>16){l.etat='repos';l.tCoup=0;}
+    return;
+  }
+  // déplacement libre
+  if(l.joueur){
+    if(gardeActive&&l.sol){l.etat='garde';l.garde=true;}
+    else{l.garde=false;if(l.etat==='garde')l.etat='repos';}
+    var v=l.garde?0.9:2.3;
+    if(gauche){l.x-=v*dt;l.anim+=dt*0.08;}
+    if(droite){l.x+=v*dt;l.anim+=dt*0.08;}
+    if(sautDemande&&l.sol&&!l.garde){l.vy=-11;l.sol=false;l.etat='saut';}
+    if(attaqueDemandee&&l.sol&&!l.garde){
+      if(lancerCoup(l,attaqueDemandee)){
+        if(attaqueDemandee==='poing')SFX.poing();
+        else if(attaqueDemandee==='pied')SFX.pied();
+        else SFX.saisie();
+      }
+    }
+  }
+  sautDemande=false;attaqueDemandee=null;
+  // limites de l'arène
+  var marge=42;
+  if(l.x<marge)l.x=marge;
+  if(l.x>W-marge)l.x=W-marge;
+}
+function toucher(att,def,C){
+  // esquive en l'air
+  if(!def.sol&&Math.random()<0.5){
+    SFX.esquive();
+    $('msg').textContent='💨 Esquive !';
+    return;
+  }
+  // garde
+  if(def.garde&&!C.imparable){
+    var deg=Math.round(C.degats*0.22);
+    def.pv-=deg;
+    def.recul=C.recul*0.5;
+    hitStop=3;secousse=2;
+    SFX.bloque();
+    for(var i=0;i<5;i++){
+      particules.push({x:def.x+def.regard*-14,y:def.y-52,vx:(Math.random()-0.5)*2,vy:-Math.random()*1.8,
+        vie:1,col:'#8ec8f0',t:2+Math.random()*2});
+    }
+    if(att.joueur)$('msg').textContent='🛡 '+ADV().nom+' bloque';
+    majBarres();
+    return;
+  }
+  // touche nette
+  var degats=C.degats*(att.joueur?1:ADV().force);
+  def.pv-=degats;
+  def.etat='touche';def.tCoup=0;
+  def.recul=C.recul*1.6;
+  def.invuln=6;
+  // --- IMPACT : gel, secousse, flash ---
+  hitStop=Math.round(4+C.degats*0.35);
+  secousse=Math.min(9,3+C.degats*0.42);
+  flashEcran=6;
+  var mots=(C.degats>=15)?['PAF !','BAM !','TCHAK !']:(C.degats>=11?['POW !','VLAN !']:['TAC !','PAN !']);
+  texteImpact={
+    txt:mots[Math.floor(Math.random()*mots.length)],
+    x:(att.x+def.x)/2, y:def.y-70, t:24, taille:C.degats>=15?26:20
+  };
+  for(var j=0;j<9;j++){
+    var a=Math.random()*Math.PI*2;
+    particules.push({x:def.x,y:def.y-56,vx:Math.cos(a)*2.2,vy:Math.sin(a)*2.2-1,
+      vie:1,col:j%2?'#F5C21B':'#E8A03A',t:2.5+Math.random()*2.5});
+  }
+  if(att.joueur){
+    coupsPortes++;
+    combo++;comboT=0;
+    if(combo>meilleurCombo)meilleurCombo=combo;
+    if(combo>1){
+      SFX.combo(combo);
+      $('comboTxt').textContent='🔥 COMBO ×'+combo;
+    }
+    $('msg').textContent=C.nom+' placé !';
+  }else{
+    combo=0;$('comboTxt').textContent='';
+    $('msg').textContent='💥 Touché !';
+  }
+  majBarres();
+  if(def.pv<=0){
+    def.pv=0;majBarres();
+    hitStop=18;secousse=12;ralenti=60;
+    texteImpact={txt:'K.O. !',x:(att.x+def.x)/2,y:def.y-80,t:60,taille:32};
+    setTimeout(function(){terminer(def!==joueur);},700);
+  }
+}
+// ---- IA ----
+function majIA(dt){
+  var A=ADV();
+  if(adv.etat!=='repos'&&adv.etat!=='garde')return;
+  adv.tDecision+=dt;
+  var d=Math.abs(joueur.x-adv.x);
+  var vers=(joueur.x>adv.x)?1:-1;
+  // décision périodique
+  var cadence=42/A.vitesse;
+  if(adv.tDecision>cadence){
+    adv.tDecision=0;
+    var r=Math.random();
+    // garder si le joueur attaque
+    if(joueur.etat==='attaque'&&r<A.garde){
+      adv.intention='garde';
+    }else if(d>125){
+      adv.intention='approche';
+    }else if(d<65&&r<0.30){
+      adv.intention='recule';
+    }else if(r<A.agressif){
+      adv.intention=(d<72&&r<A.agressif*0.35)?'saisie':(r<A.agressif*0.65?'poing':'pied');
+    }else{
+      adv.intention=(r<0.5)?'approche':'garde';
+    }
+  }
+  adv.garde=(adv.intention==='garde');
+  adv.etat=adv.garde?'garde':'repos';
+  if(adv.intention==='approche'&&d>72){adv.x+=vers*1.9*A.vitesse*dt;adv.anim+=dt*0.08;}
+  else if(adv.intention==='recule'&&d<150){adv.x-=vers*1.5*A.vitesse*dt;adv.anim+=dt*0.08;}
+  else if(adv.intention==='poing'||adv.intention==='pied'||adv.intention==='saisie'){
+    var C=COUPS[adv.intention];
+    if(d<C.portee+12){
+      if(lancerCoup(adv,adv.intention)){
+        adv.intention='approche';
+        if(adv.coup==='poing')SFX.poing();else if(adv.coup==='pied')SFX.pied();else SFX.saisie();
+      }
+    }else{
+      adv.x+=vers*1.9*A.vitesse*dt;
+    }
+  }
+  var marge=42;
+  if(adv.x<marge)adv.x=marge;
+  if(adv.x>W-marge)adv.x=W-marge;
+}
+function step(dt){
+  if(over)return;
+  // décompte des effets visuels
+  if(secousse>0)secousse*=Math.pow(0.86,dt);
+  if(secousse<0.15)secousse=0;
+  if(flashEcran>0)flashEcran-=dt;
+  if(texteImpact){texteImpact.t-=dt;if(texteImpact.t<=0)texteImpact=null;}
+  // HIT STOP : tout se fige un instant, c'est ce qui donne du poids au coup
+  if(hitStop>0){hitStop-=dt;return;}
+  if(ralenti>0){ralenti-=dt;dt*=0.35;}
+  var now=Date.now();
+  tempsRestant-=(now-tDernier)/1000;
+  tDernier=now;
+  if(tempsRestant<=0){
+    tempsRestant=0;
+    terminer(joueur.pv>adv.pv);
+    return;
+  }
+  // le combo expire
+  if(combo>0){
+    comboT+=dt;
+    if(comboT>70){combo=0;$('comboTxt').textContent='';}
+  }
+  majLutteur(joueur,adv,dt);
+  majIA(dt);
+  majLutteur(adv,joueur,dt);
+  // les lutteurs ne se traversent pas
+  var d=adv.x-joueur.x;
+  if(Math.abs(d)<56){
+    var pousse=(56-Math.abs(d))/2*(d>0?1:-1);
+    joueur.x-=pousse*0.5;adv.x+=pousse*0.5;
+  }
+  for(var i=particules.length-1;i>=0;i--){
+    var p=particules[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=0.16*dt;p.vie-=0.035*dt;
+    if(p.vie<=0)particules.splice(i,1);
+  }
+  majBarres();
+}
+function terminer(win){
+  over=true;gagne=win;
+  var dernier=(combatIdx===ADVERSAIRES.length-1);
+  var A=ADV();
+  if(win){
+    if(combatIdx>=maxDebloque&&!dernier){
+      maxDebloque=combatIdx+1;
+      try{localStorage.setItem('fasogames_lutte_max',maxDebloque);}catch(e){}
+    }
+    var pts=Math.round((coupsPortes*12+meilleurCombo*40+Math.round(joueur.pv))*A.coef);
+    scoreCumul+=pts;
+    try{localStorage.setItem('fasogames_lutte_cumul',scoreCumul);}catch(e){}
+  }
+  $('finTitre').textContent = win
+    ? (dernier?'👑 CHAMPION NATIONAL !':'🏆 '+A.nom+' battu !')
+    : '💀 Tu es à terre';
+  $('fCombat').textContent=(combatIdx+1)+'/'+ADVERSAIRES.length;
+  $('fCoups').textContent=coupsPortes;
+  $('fCombo').textContent=meilleurCombo;
+  $('finTexte').textContent = win
+    ? (dernier
+      ? 'Akim a battu Le Lion et remporte la ceinture ! Total du tournoi : '+scoreCumul+' pts.'
+      : 'Bien lutté ! '+ADVERSAIRES[combatIdx+1].nom+' t\'attend dans l\'arène. Total : '+scoreCumul+' pts.')
+    : 'Garde bien : le bouclier réduit les dégâts de 80 %. Et la saisie passe à travers la garde.';
+  $('suivant').style.display=(win&&!dernier)?'block':'none';
+  $('rejouer').textContent=win?'REVOIR CE COMBAT':'REVANCHE';
+  if(win){SFX.victoire();domConfetti();}else{SFX.defaite();}
+  var envoi=Math.round(Math.min(700,(coupsPortes*10+meilleurCombo*35))*A.coef);
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Lutte Faso',
+    score:envoi,victoire:win},'*');}catch(e){}}
+  $('fin').style.display='flex';
+}
+
+// ================= RENDU =================
+function draw(){
+  ctx.save();
+  // SECOUSSE : tout l'écran tremble à l'impact
+  if(secousse>0){
+    ctx.translate((Math.random()-0.5)*secousse*2,(Math.random()-0.5)*secousse*1.6);
+  }
+  // ciel de fin d'après-midi
+  var g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#3a5a8a');g.addColorStop(0.4,'#8a7a6a');g.addColorStop(0.75,'#d8a860');g.addColorStop(1,'#e8c890');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // soleil couchant
+  var sg=ctx.createRadialGradient(W*0.5,SOL-40,10,W*0.5,SOL-40,120);
+  sg.addColorStop(0,'rgba(255,220,140,.6)');sg.addColorStop(1,'rgba(255,190,100,0)');
+  ctx.fillStyle=sg;ctx.beginPath();ctx.arc(W*0.5,SOL-40,120,0,7);ctx.fill();
+
+  // gradins : silhouettes de spectateurs
+  ctx.fillStyle='rgba(40,30,20,.55)';
+  ctx.fillRect(0,SOL-96,W,66);
+  for(var s=0;s<40;s++){
+    var sx=(s*13+((s*7)%9))%W;
+    var sy=SOL-92+((s*5)%54);
+    var osc=Math.sin(Date.now()*0.002+s)*1.5;
+    ctx.fillStyle='rgba('+[30+((s*11)%40),22+((s*7)%30),14+((s*5)%22)].join(',')+',.85)';
+    ctx.beginPath();ctx.arc(sx,sy+osc,4.5,0,7);ctx.fill();
+    ctx.fillRect(sx-4,sy+3+osc,8,10);
+  }
+  // banderole
+  ctx.fillStyle='rgba(245,194,27,.85)';
+  ctx.fillRect(0,SOL-104,W,11);
+  ctx.fillStyle='#3a2810';ctx.font='bold 8px Arial';ctx.textAlign='center';
+  ctx.fillText('★ ARÈNE DE OUAGADOUGOU ★ LUTTE TRADITIONNELLE ★',W/2,SOL-96);
+
+  // sable de l'arène
+  var gs=ctx.createLinearGradient(0,SOL-30,0,H);
+  gs.addColorStop(0,'#d8b478');gs.addColorStop(0.3,'#c09a58');gs.addColorStop(1,'#8a6a38');
+  ctx.fillStyle=gs;ctx.fillRect(0,SOL-30,W,H-SOL+30);
+  // cercle de l'arène
+  ctx.strokeStyle='rgba(120,90,40,.5)';ctx.lineWidth=3;
+  ctx.beginPath();ctx.ellipse(W/2,SOL+26,W*0.46,26,0,0,7);ctx.stroke();
+  // grains
+  ctx.fillStyle='rgba(150,115,60,.4)';
+  for(var q=0;q<40;q++){
+    ctx.beginPath();ctx.arc((q*37)%W,SOL+8+((q*13)%40),1.6,0,7);ctx.fill();
+  }
+
+  // ombres
+  [joueur,adv].forEach(function(l){
+    ctx.fillStyle='rgba(60,40,15,.3)';
+    ctx.beginPath();ctx.ellipse(l.x,SOL+4,32,8,0,0,7);ctx.fill();
+  });
+
+  // lutteurs : le plus à droite dessiné en second
+  var ordre=(joueur.x<adv.x)?[joueur,adv]:[adv,joueur];
+  ordre.forEach(function(l){dessinerLutteur(l);});
+
+  // particules
+  particules.forEach(function(p){
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.t*p.vie,0,7);ctx.fill();
+    ctx.globalAlpha=1;
+  });
+
+  // texte d'impact type bande dessinée
+  if(texteImpact){
+    var T=texteImpact;
+    var prog=1-T.t/(T.txt==='K.O. !'?60:24);
+    var ech=T.txt==='K.O. !' ? (1+prog*0.5) : (1.5-prog*0.5);
+    ctx.save();
+    ctx.translate(T.x,T.y-prog*22);
+    ctx.rotate((Math.random()-0.5)*0.06-0.12);
+    ctx.scale(ech,ech);
+    ctx.globalAlpha=Math.min(1,T.t/9);
+    ctx.font='bold '+T.taille+'px Arial Black, Arial';
+    ctx.textAlign='center';
+    ctx.lineWidth=5;ctx.strokeStyle='#12130F';
+    ctx.strokeText(T.txt,0,0);
+    var gT=ctx.createLinearGradient(0,-T.taille,0,4);
+    gT.addColorStop(0,'#fff6b0');gT.addColorStop(1,'#F5C21B');
+    ctx.fillStyle=gT;
+    ctx.fillText(T.txt,0,0);
+    ctx.restore();
+  }
+
+  ctx.restore();
+  // FLASH blanc bref, par-dessus tout et hors secousse
+  if(flashEcran>0){
+    ctx.save();
+    ctx.globalAlpha=Math.min(0.34,flashEcran/6*0.34);
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+  }
+}
+var ECHELLE=1.55;   // les lutteurs occupent bien l'arène
+function dessinerLutteur(l){
+  var C=l.coup?COUPS[l.coup]:null;
+  var phase=C?(l.tCoup<C.prepa?'prepa':(l.tCoup<C.prepa+C.actif?'actif':'recup')):null;
+  ctx.save();
+  ctx.translate(l.x,l.y);
+  ctx.scale(l.regard*ECHELLE,ECHELLE);
+  if(l.etat==='touche'){
+    ctx.rotate(-0.16);
+    ctx.translate(-6,4);
+  }
+  var march=Math.sin(l.anim*Math.PI*2)*4;
+  var ecart=l.garde?3:0;
+  // le corps s'engage dans le coup : penché en avant sur la frappe
+  if(phase==='actif'){ctx.rotate(0.10);ctx.translate(4,0);}
+  else if(phase==='prepa'){ctx.rotate(-0.06);ctx.translate(-3,0);}
+
+  // jambes
+  ctx.strokeStyle=l.peau;ctx.lineWidth=9;ctx.lineCap='round';
+  if(phase==='actif'&&l.coup==='pied'){
+    // TRAÎNÉE : arc balayé par la jambe
+    ctx.save();
+    ctx.globalAlpha=.42;
+    ctx.strokeStyle='#fff0a0';ctx.lineWidth=13;ctx.lineCap='round';
+    ctx.beginPath();ctx.arc(3,-34,46,-0.9,0.15);ctx.stroke();
+    ctx.globalAlpha=.22;
+    ctx.lineWidth=22;
+    ctx.beginPath();ctx.arc(3,-34,46,-0.75,0.1);ctx.stroke();
+    ctx.restore();
+    ctx.strokeStyle=l.peau;ctx.lineWidth=9;
+    // coup de pied tendu vers l'avant
+    ctx.beginPath();ctx.moveTo(-3,-34);ctx.lineTo(-7,-2);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(3,-34);ctx.lineTo(42,-40);ctx.stroke();
+    ctx.fillStyle=l.peau;
+    ctx.beginPath();ctx.arc(44,-40,7,0,7);ctx.fill();
+  }else{
+    ctx.beginPath();ctx.moveTo(-4-ecart,-34);ctx.lineTo(-6-ecart-march*0.4,-2);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(4+ecart,-34);ctx.lineTo(7+ecart+march*0.4,-2);ctx.stroke();
+    // pieds
+    ctx.strokeStyle='#4a3520';ctx.lineWidth=6;
+    ctx.beginPath();ctx.moveTo(-6-ecart-march*0.4,-3);ctx.lineTo(-1-ecart-march*0.4,-1);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(7+ecart+march*0.4,-3);ctx.lineTo(12+ecart+march*0.4,-1);ctx.stroke();
+  }
+
+  // pagne
+  ctx.fillStyle=l.pagne;
+  ctx.beginPath();
+  ctx.moveTo(-13,-46);ctx.lineTo(13,-46);ctx.lineTo(11,-26);ctx.lineTo(-11,-26);
+  ctx.closePath();ctx.fill();
+  ctx.strokeStyle='rgba(20,12,4,.5)';ctx.lineWidth=1.6;ctx.stroke();
+  // motifs du pagne
+  ctx.strokeStyle='rgba(255,240,200,.5)';ctx.lineWidth=1.8;
+  for(var m=-1;m<=1;m++){
+    ctx.beginPath();ctx.moveTo(m*7,-45);ctx.lineTo(m*6,-27);ctx.stroke();
+  }
+
+  // torse musclé
+  var gt=ctx.createLinearGradient(-14,-78,14,-46);
+  gt.addColorStop(0,l.peau);
+  gt.addColorStop(1,'rgba(0,0,0,.28)');
+  ctx.fillStyle=l.peau;
+  ctx.beginPath();
+  ctx.moveTo(-14,-76);
+  ctx.quadraticCurveTo(-17,-60,-12,-46);
+  ctx.lineTo(12,-46);
+  ctx.quadraticCurveTo(17,-60,14,-76);
+  ctx.closePath();ctx.fill();
+  ctx.fillStyle=gt;
+  ctx.beginPath();
+  ctx.moveTo(-14,-76);
+  ctx.quadraticCurveTo(-17,-60,-12,-46);
+  ctx.lineTo(12,-46);
+  ctx.quadraticCurveTo(17,-60,14,-76);
+  ctx.closePath();ctx.fill();
+  // pectoraux
+  ctx.strokeStyle='rgba(60,36,12,.4)';ctx.lineWidth=1.6;
+  ctx.beginPath();ctx.moveTo(0,-72);ctx.lineTo(0,-58);ctx.stroke();
+  ctx.beginPath();ctx.arc(-6,-66,5,0.2,2.4);ctx.stroke();
+  ctx.beginPath();ctx.arc(6,-66,5,0.8,3.0);ctx.stroke();
+
+  // amulettes en bandoulière
+  ctx.strokeStyle='#6b4a24';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(-12,-74);ctx.lineTo(11,-52);ctx.stroke();
+  ctx.fillStyle='#c9a066';
+  [[-6,-68],[1,-62],[7,-56]].forEach(function(a){
+    ctx.beginPath();ctx.roundRect(a[0]-3,a[1]-3,6,7,1.5);ctx.fill();
+  });
+
+  // bras
+  ctx.strokeStyle=l.peau;ctx.lineWidth=8;
+  if(phase==='actif'&&l.coup==='poing'){
+    // TRAÎNÉE : lignes de vitesse derrière le poing
+    ctx.save();
+    ctx.globalAlpha=.45;
+    ctx.strokeStyle='#fff0a0';ctx.lineWidth=10;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(12,-66);ctx.lineTo(44,-66);ctx.stroke();
+    ctx.globalAlpha=.22;
+    ctx.lineWidth=18;
+    ctx.beginPath();ctx.moveTo(16,-66);ctx.lineTo(42,-66);ctx.stroke();
+    ctx.restore();
+    ctx.strokeStyle=l.peau;ctx.lineWidth=8;
+    ctx.beginPath();ctx.moveTo(-10,-70);ctx.lineTo(-16,-56);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(10,-70);ctx.lineTo(44,-66);ctx.stroke();
+    ctx.fillStyle=l.peau;
+    ctx.beginPath();ctx.arc(47,-66,7,0,7);ctx.fill();
+    ctx.strokeStyle='rgba(40,24,8,.5)';ctx.lineWidth=1.6;ctx.stroke();
+  }else if(phase==='actif'&&l.coup==='saisie'){
+    ctx.beginPath();ctx.moveTo(-10,-70);ctx.lineTo(24,-56);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(10,-70);ctx.lineTo(30,-62);ctx.stroke();
+    ctx.fillStyle=l.peau;
+    ctx.beginPath();ctx.arc(26,-56,6.5,0,7);ctx.fill();
+    ctx.beginPath();ctx.arc(32,-62,6.5,0,7);ctx.fill();
+  }else if(l.garde){
+    // bras croisés devant le visage
+    ctx.beginPath();ctx.moveTo(-10,-70);ctx.lineTo(6,-78);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(10,-70);ctx.lineTo(-4,-80);ctx.stroke();
+  }else if(phase==='prepa'){
+    // armé, poing en arrière
+    ctx.beginPath();ctx.moveTo(-10,-70);ctx.lineTo(-22,-62);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(10,-70);ctx.lineTo(2,-56);ctx.stroke();
+  }else{
+    ctx.beginPath();ctx.moveTo(-10,-70);ctx.lineTo(-15+march*0.3,-52);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(10,-70);ctx.lineTo(15-march*0.3,-52);ctx.stroke();
+  }
+
+  // tête
+  ctx.fillStyle=l.peau;
+  ctx.beginPath();ctx.arc(0,-88,11,0,7);ctx.fill();
+  ctx.strokeStyle='rgba(40,24,8,.45)';ctx.lineWidth=1.6;ctx.stroke();
+  // cheveux
+  ctx.fillStyle='#1a1208';
+  ctx.beginPath();ctx.arc(0,-92,11,Math.PI,0);ctx.fill();
+  // bandeau du lutteur
+  ctx.fillStyle=l.pagne;
+  ctx.fillRect(-11,-95,22,4.5);
+  // visage
+  ctx.fillStyle='#12130F';
+  if(l.etat==='touche'){
+    // yeux fermés, grimace
+    ctx.beginPath();ctx.moveTo(3,-90);ctx.lineTo(8,-90);
+    ctx.lineWidth=1.8;ctx.strokeStyle='#12130F';ctx.stroke();
+    ctx.beginPath();ctx.arc(4,-82,3,Math.PI,0);ctx.stroke();
+  }else{
+    ctx.beginPath();ctx.arc(5,-89,1.9,0,7);ctx.fill();
+    ctx.strokeStyle='#5c3a1a';ctx.lineWidth=1.4;
+    ctx.beginPath();ctx.arc(4,-84,2.6,0.2,1.1);ctx.stroke();
+  }
+  // effet de garde
+  if(l.garde){
+    ctx.strokeStyle='rgba(140,200,255,.5)';ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.arc(6,-64,30,-1.1,1.1);ctx.stroke();
+  }
+  ctx.restore();
+
+  // éclair d'impact
+  if(phase==='actif'&&l.aTouche){
+    ctx.save();
+    ctx.globalAlpha=0.6;
+    var ix=l.x+l.regard*46, iy=l.y-(l.coup==='pied'?40:66);
+    var gi=ctx.createRadialGradient(ix,iy,2,ix,iy,17);
+    gi.addColorStop(0,'#fff6c0');gi.addColorStop(0.5,'#F5C21B');gi.addColorStop(1,'rgba(245,194,27,0)');
+    ctx.fillStyle=gi;
+    ctx.beginPath();ctx.arc(ix,iy,17,0,7);ctx.fill();
+    ctx.restore();
+  }
+}
+
+// ================= COMMANDES =================
+function presser(el,set){
+  el.addEventListener('touchstart',function(e){set(true);e.preventDefault();},{passive:false});
+  el.addEventListener('touchend',function(e){set(false);e.preventDefault();},{passive:false});
+  el.addEventListener('mousedown',function(){set(true);});
+  window.addEventListener('mouseup',function(){set(false);});
+}
+presser($('bGauche'),function(v){gauche=v;});
+presser($('bDroite'),function(v){droite=v;});
+presser($('bGarde'),function(v){
+  gardeActive=v;
+  $('bGarde').classList.toggle('actif',v);
+});
+function frappe(type){attaqueDemandee=type;}
+[['bPoing','poing'],['bPied','pied'],['bSaisie','saisie']].forEach(function(x){
+  var el=$(x[0]);
+  el.addEventListener('touchstart',function(e){frappe(x[1]);e.preventDefault();},{passive:false});
+  el.addEventListener('mousedown',function(){frappe(x[1]);});
+});
+$('bSaut').addEventListener('touchstart',function(e){sautDemande=true;e.preventDefault();},{passive:false});
+$('bSaut').addEventListener('mousedown',function(){sautDemande=true;});
+window.addEventListener('keydown',function(e){
+  if(e.key==='ArrowLeft')gauche=true;
+  if(e.key==='ArrowRight')droite=true;
+  if(e.key==='ArrowDown'){gardeActive=true;$('bGarde').classList.add('actif');e.preventDefault();}
+  if(e.key==='ArrowUp'){sautDemande=true;e.preventDefault();}
+  if(e.key==='a'||e.key==='A')frappe('poing');
+  if(e.key==='z'||e.key==='Z')frappe('pied');
+  if(e.key==='e'||e.key==='E')frappe('saisie');
+});
+window.addEventListener('keyup',function(e){
+  if(e.key==='ArrowLeft')gauche=false;
+  if(e.key==='ArrowRight')droite=false;
+  if(e.key==='ArrowDown'){gardeActive=false;$('bGarde').classList.remove('actif');}
+});
+$('rejouer').addEventListener('click',reset);
+$('suivant').addEventListener('click',function(){
+  if(combatIdx+1<ADVERSAIRES.length){
+    combatIdx++;
+    try{localStorage.setItem('fasogames_lutte_combat',combatIdx);}catch(e){}
+    reset();
+  }
+});
+
+// ---- partage ----
+var LIEN='https://teal-muffin-8e3f01.netlify.app';
+function msgScore(){
+  return "🤼 J'ai battu "+ADV().nom+" à Lutte Faso ("+coupsPortes+" coups, combo ×"+
+    meilleurCombo+") ! À ton tour de jouer ici 👉 "+LIEN;
+}
+function msgDefi(){
+  return "⚔️ Je te défie sur Lutte Faso ! J'en suis au combat "+(combatIdx+1)+"/"+
+    ADVERSAIRES.length+". Bats-moi si tu peux 👉 "+LIEN;
+}
+function envoyer(m){
+  if(navigator.share)navigator.share({title:'Lutte Faso',text:m,url:LIEN}).catch(function(){});
+  else window.open('https://wa.me/?text='+encodeURIComponent(m),'_blank');
+}
+$('btnPartager').addEventListener('click',function(){envoyer(msgScore());});
+$('btnDefier').addEventListener('click',function(){envoyer(msgDefi());});
+
+window.__lutte={
+  state:function(){return {
+    pvJoueur:Math.round(joueur.pv), pvAdv:Math.round(adv.pv),
+    xJoueur:Math.round(joueur.x), xAdv:Math.round(adv.x),
+    etatJoueur:joueur.etat, etatAdv:adv.etat,
+    coupsPortes:coupsPortes, combo:combo, meilleurCombo:meilleurCombo,
+    temps:Math.ceil(tempsRestant), over:over, gagne:gagne,
+    combat:combatIdx+1, total:ADVERSAIRES.length, adversaire:ADV().nom,
+    garde:joueur.garde, muet:SFX.estMuet()};},
+  aller:function(d){gauche=(d<0);droite=(d>0);},
+  stop:function(){gauche=droite=false;},
+  frapper:function(t){frappe(t);},
+  garder:function(v){gardeActive=!!v;$('bGarde').classList.toggle('actif',!!v);},
+  sauter:function(){sautDemande=true;},
+  allerCombat:function(i){if(i>=0&&i<ADVERSAIRES.length&&i<=maxDebloque){combatIdx=i;reset();}},
+  debloquerTout:function(){maxDebloque=ADVERSAIRES.length-1;},
+  forcerFin:function(w){terminer(!!w);},
+  blesserAdv:function(n){adv.pv=Math.max(0,adv.pv-n);majBarres();if(adv.pv<=0)terminer(true);},
+  progression:function(){return {combat:combatIdx+1,total:ADVERSAIRES.length,
+    maxDebloque:maxDebloque+1,cumul:scoreCumul,adversaire:ADV().nom};}
+};
+
+var last=0;
+function loop(now){
+  var dt=Math.min(2.5,(now-last)/16.7);last=now;
+  step(dt);draw();
+  requestAnimationFrame(loop);
+}
+resize();reset();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

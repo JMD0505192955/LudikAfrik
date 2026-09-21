@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Sudoku Faso</title>
+<style>
+  :root{--vert:#0E7A3C;--rouge:#E32219;--or:#F5C21B;--nuit:#12130F;--craie:#FAF7EF;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:var(--nuit);font-family:"Arial Black","Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;}
+  header{width:100%;max-width:430px;padding:12px 16px 6px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-size:20px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial,sans-serif;font-weight:400;font-size:9px;letter-spacing:3px;color:#8b8f84;margin-top:3px;}
+  .scores{text-align:right;line-height:1.25;}
+  .scores .val{font-size:18px;color:var(--or);}
+  .scores .lbl{font-family:Arial,sans-serif;font-size:9px;letter-spacing:2px;color:#8b8f84;}
+  #niveaux{display:flex;gap:6px;justify-content:center;padding:2px 0 4px;}
+  #niveaux button{background:#1d1f19;border:1px solid #2a2c24;color:#8b8f84;border-radius:999px;
+    padding:6px 14px;font-family:inherit;font-size:11px;letter-spacing:.5px;}
+  #niveaux button.sel{background:var(--or);color:var(--nuit);border-color:var(--or);}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 12px 4px;gap:8px;}
+  canvas{display:block;border-radius:10px;}
+  #pave{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;width:100%;max-width:360px;}
+  #pave button{background:#1d1f19;border:1px solid #2a2c24;color:var(--craie);border-radius:10px;
+    padding:12px 0;font-family:"Arial Black";font-size:19px;}
+  #pave button:active{background:var(--or);color:var(--nuit);}
+  #pave button.efface{color:var(--rouge);font-size:15px;}
+  #fin{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,19,15,.9);text-align:center;padding:24px;border-radius:14px;z-index:5;}
+  #fin h2{font-size:30px;color:var(--or);margin-bottom:6px;}
+  #fin p{font-family:Arial,sans-serif;font-size:14px;color:#c9ccc0;margin-bottom:20px;line-height:1.5;}
+  #fin button{font-family:inherit;font-size:16px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:14px 34px;}
+  footer{width:100%;max-width:430px;padding:6px 16px 12px;text-align:center;
+    font-family:Arial,sans-serif;font-size:11px;color:#6c7064;letter-spacing:.5px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">SUDOKU <span>FASO</span><small>REMPLIS LA GRILLE</small></div>
+  <div style="display:flex;align-items:center;gap:0"><button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:32px;height:32px;font-size:14px;margin-right:8px">🔊</button>
+<div class="scores"><div class="val" id="temps">0:00</div>
+  <div class="lbl">ERREURS <span id="err">0</span>/3</div></div>
+</div>
+</header>
+<div id="niveaux">
+  <button data-n="facile" class="sel">FACILE</button>
+  <button data-n="moyen">MOYEN</button>
+  <button data-n="difficile">DIFFICILE</button>
+</div>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="pave"></div>
+  <div id="fin"><h2 id="finTitre"></h2><p id="finTexte"></p><button id="rejouer">NOUVELLE GRILLE</button></div>
+</div>
+<footer>Démo VAS — grille du jour &amp; classement hebdo à venir</footer>
+<script>
+(function(){
+"use strict";
+// ===== Kit sonore Faso Games (synthétisé, 0 Ko d'assets, silencieux par défaut respecté) =====
+var SFX=(function(){
+  var ctx,muet=false;
+  try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+  function ac(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();return ctx;}
+  function tone(freq,dur,type,vol,glide){
+    if(muet)return;
+    try{
+      var c=ac();var o=c.createOscillator();var g=c.createGain();
+      o.type=type||'sine';o.frequency.value=freq;
+      if(glide)o.frequency.linearRampToValueAtTime(glide,c.currentTime+dur);
+      g.gain.value=vol||0.15;
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+      o.connect(g);g.connect(c.destination);
+      o.start();o.stop(c.currentTime+dur);
+    }catch(e){}
+  }
+  return{
+    tap:function(){tone(440,0.05,'square',0.08);},
+    bon:function(){tone(523,0.09,'sine',0.14);setTimeout(function(){tone(784,0.12,'sine',0.14);},70);},
+    mauvais:function(){tone(160,0.22,'sawtooth',0.12,90);},
+    victoire:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.15);},i*90);});},
+    defaite:function(){[392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.22,'sine',0.12);},i*120);});},
+    piece:function(){tone(988,0.08,'triangle',0.12,1400);},
+    tick:function(){tone(300,0.03,'square',0.05);},
+    estMuet:function(){return muet;},
+    toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+  };
+})();
+// Bouton mute (à placer dans le header de chaque jeu)
+function initBoutonSon(id){
+  var b=document.getElementById(id);
+  if(!b)return;
+  function maj(){b.textContent=SFX.estMuet()?'🔇':'🔊';}
+  maj();
+  b.addEventListener('click',function(){SFX.toggle();maj();});
+}
+// Confetti simple (petites particules colorées, pour les écrans de victoire)
+function confetti(canvas,ctx,cx,cy){
+  var parts=[];
+  var couleurs=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<24;i++){
+    var a=Math.random()*Math.PI*2,v=2+Math.random()*3;
+    parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,g:0.12,vie:1,col:couleurs[i%couleurs.length],taille:3+Math.random()*3});
+  }
+  return parts;
+}
+function drawConfetti(ctx,parts,dt){
+  for(var i=parts.length-1;i>=0;i--){
+    var p=parts[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vie-=0.018*dt;
+    if(p.vie<=0){parts.splice(i,1);continue;}
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.taille/2,p.y-p.taille/2,p.taille,p.taille);
+    ctx.globalAlpha=1;
+  }
+}
+initBoutonSon("btnSon");
+
+const cvs=document.getElementById('c'),ctx=cvs.getContext('2d');
+const tempsEl=document.getElementById('temps'),errEl=document.getElementById('err');
+const fin=document.getElementById('fin'),finTitre=document.getElementById('finTitre'),finTexte=document.getElementById('finTexte');
+let S=0,DPR=1,cell=0;
+let confettiParts=[];
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  const r=cvs.parentElement.getBoundingClientRect();
+  S=Math.min(r.width-24,r.height-150,380);
+  cvs.style.width=S+'px';cvs.style.height=S+'px';
+  cvs.width=S*DPR;cvs.height=S*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  cell=S/9;
+}
+window.addEventListener('resize',resize);
+
+let sol, puzzle, grille, fixe, notes, sel=null, erreurs=0, over=false, t0=0, chrono=0, niveau='facile';
+const TROUS={facile:38,moyen:46,difficile:52};
+
+function valide(g,r,c,v){
+  for(let i=0;i<9;i++){if(g[r][i]===v||g[i][c]===v)return false;}
+  const br=3*Math.floor(r/3),bc=3*Math.floor(c/3);
+  for(let i=0;i<3;i++)for(let j=0;j<3;j++)if(g[br+i][bc+j]===v)return false;
+  return true;
+}
+function resoudre(g){
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    if(g[r][c]===0){
+      const nums=[1,2,3,4,5,6,7,8,9].sort(()=>Math.random()-0.5);
+      for(const v of nums){
+        if(valide(g,r,c,v)){g[r][c]=v;if(resoudre(g))return true;g[r][c]=0;}
+      }
+      return false;
+    }
+  }
+  return true;
+}
+function nouvelle(){
+  sol=Array.from({length:9},()=>new Array(9).fill(0));
+  resoudre(sol);
+  puzzle=sol.map(r=>r.slice());
+  let aRetirer=TROUS[niveau];
+  const cases=[];
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++)cases.push([r,c]);
+  cases.sort(()=>Math.random()-0.5);
+  for(const [r,c] of cases){
+    if(aRetirer<=0)break;
+    puzzle[r][c]=0;aRetirer--;
+  }
+  grille=puzzle.map(r=>r.slice());
+  fixe=puzzle.map(r=>r.map(v=>v!==0));
+  sel=null;erreurs=0;over=false;chrono=0;t0=Date.now();
+  errEl.textContent='0';
+  fin.style.display='none';confettiParts=[];
+}
+function poser(v){
+  if(over||!sel)return;
+  const [r,c]=sel;
+  if(fixe[r][c])return;
+  if(v===0){grille[r][c]=0;return;}
+  grille[r][c]=v;
+  if(v!==sol[r][c]){
+    erreurs++;errEl.textContent=erreurs;
+    SFX.mauvais();
+    if(erreurs>=3)return finPartie(false);
+  }else{
+    SFX.tap();
+    if(estComplet())finPartie(true);
+  }
+}
+function estComplet(){
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(grille[r][c]!==sol[r][c])return false;
+  return true;
+}
+function finPartie(win){
+  over=true;
+  finTitre.textContent=win?'🏆 RÉSOLU !':'❌ 3 ERREURS';
+  finTexte.textContent=win?"Grille "+niveau+" terminée en "+fmt(chrono)+" ! Le classement hebdo t'attend."
+    :"Trop d'erreurs sur cette grille... Prends ton temps et recommence !";
+  if(win){SFX.victoire();confettiParts=confetti(cvs,ctx,S/2,S*0.4);}else{SFX.defaite();}
+  var scoreEnvoi=win?Math.max(150,500-chrono*2)+(niveau==='difficile'?150:niveau==='moyen'?75:0):80;
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Sudoku',score:scoreEnvoi,victoire:win},'*');}catch(e){}}
+  fin.style.display='flex';
+}
+function fmt(s){return Math.floor(s/60)+':'+('0'+(s%60)).slice(-2);}
+document.getElementById('rejouer').addEventListener('click',nouvelle);
+document.querySelectorAll('#niveaux button').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('#niveaux button').forEach(b=>b.classList.remove('sel'));
+    btn.classList.add('sel');niveau=btn.dataset.n;nouvelle();
+  });
+});
+// pavé numérique
+const pave=document.getElementById('pave');
+for(let i=1;i<=9;i++){
+  const b=document.createElement('button');b.textContent=i;
+  b.addEventListener('click',()=>poser(i));pave.appendChild(b);
+}
+const be=document.createElement('button');be.textContent='⌫';be.className='efface';
+be.addEventListener('click',()=>poser(0));pave.appendChild(be);
+
+function draw(){
+  if(!over){chrono=Math.floor((Date.now()-t0)/1000);tempsEl.textContent=fmt(chrono);}
+  ctx.fillStyle='#FAF7EF';ctx.fillRect(0,0,S,S);
+  // surbrillance sélection (ligne/col/bloc + mêmes chiffres)
+  if(sel){
+    const [sr,sc]=sel, sv=grille[sr][sc];
+    for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+      const meme=r===sr||c===sc||(Math.floor(r/3)===Math.floor(sr/3)&&Math.floor(c/3)===Math.floor(sc/3));
+      if(meme){ctx.fillStyle='rgba(245,194,27,.12)';ctx.fillRect(c*cell,r*cell,cell,cell);}
+      if(sv&&grille[r][c]===sv){ctx.fillStyle='rgba(245,194,27,.22)';ctx.fillRect(c*cell,r*cell,cell,cell);}
+    }
+    ctx.fillStyle='rgba(245,194,27,.32)';ctx.fillRect(sc*cell,sr*cell,cell,cell);
+  }
+  // chiffres
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    const v=grille[r][c];if(!v)continue;
+    if(fixe[r][c])ctx.fillStyle='#12130F';
+    else if(v===sol[r][c])ctx.fillStyle='#0E7A3C';
+    else ctx.fillStyle='#E32219';
+    ctx.font=(fixe[r][c]?'bold ':'')+Math.round(cell*0.5)+'px Arial';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(v,c*cell+cell/2,r*cell+cell/2+1);
+  }
+  // grille
+  for(let i=0;i<=9;i++){
+    const gros=i%3===0;
+    ctx.strokeStyle=gros?'#12130F':'rgba(18,19,15,.25)';
+    ctx.lineWidth=gros?2.5:1;
+    ctx.beginPath();ctx.moveTo(i*cell,0);ctx.lineTo(i*cell,S);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,i*cell);ctx.lineTo(S,i*cell);ctx.stroke();
+  }
+}
+cvs.addEventListener('touchstart',e=>{
+  const r=cvs.getBoundingClientRect();
+  const c=Math.floor((e.touches[0].clientX-r.left)/cell),rr=Math.floor((e.touches[0].clientY-r.top)/cell);
+  if(rr>=0&&rr<9&&c>=0&&c<9)sel=[rr,c];
+  e.preventDefault();
+},{passive:false});
+cvs.addEventListener('mousedown',e=>{
+  const r=cvs.getBoundingClientRect();
+  const c=Math.floor((e.clientX-r.left)/cell),rr=Math.floor((e.clientY-r.top)/cell);
+  if(rr>=0&&rr<9&&c>=0&&c<9)sel=[rr,c];
+});
+window.addEventListener('keydown',e=>{
+  if(e.key>='1'&&e.key<='9')poser(+e.key);
+  if(e.key==='Backspace'||e.key==='0')poser(0);
+});
+window.__sudoku={state:()=>({over,erreurs,niveau,confettiN:confettiParts.length,muet:SFX.estMuet()}),
+  select:(r,c)=>{sel=[r,c];},poser:poser,sol:()=>sol,grille:()=>grille,fixe:()=>fixe,
+  autoRemplir:()=>{ // remplit tout sauf 1 case (pour test de victoire)
+    let reste=null;
+    for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(!fixe[r][c]){
+      if(reste===null){reste=[r,c];continue;}
+      grille[r][c]=sol[r][c];
+    }
+    if(reste){sel=reste;poser(sol[reste[0]][reste[1]]);}
+  }};
+let last=0;
+function loop(now){
+  draw();
+  const dt=last?Math.min(2.5,(now-last)/16.7):1;last=now;
+  if(confettiParts.length)drawConfetti(ctx,confettiParts,dt);
+  requestAnimationFrame(loop);
+}
+resize();nouvelle();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

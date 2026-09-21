@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Puissance 4 Faso</title>
+<style>
+  :root{--vert:#0E7A3C;--rouge:#E32219;--or:#F5C21B;--nuit:#12130F;--craie:#FAF7EF;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:var(--nuit);font-family:"Arial Black","Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;}
+  header{width:100%;max-width:430px;padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-size:20px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial,sans-serif;font-weight:400;font-size:9px;letter-spacing:3px;color:#8b8f84;margin-top:3px;}
+  .marque{display:flex;align-items:center;gap:8px;font-size:22px;}
+  .marque .toi{color:var(--or);}
+  .marque .sep{color:#57594f;font-size:16px;}
+  .marque .ia{color:#c9ccc0;}
+  #msg{height:26px;font-size:14px;letter-spacing:.5px;text-align:center;color:var(--or);}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;justify-content:center;padding:0 12px 4px;}
+  canvas{display:block;border-radius:14px;}
+  #fin{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,19,15,.88);text-align:center;padding:24px;border-radius:14px;}
+  #fin h2{font-size:30px;color:var(--or);margin-bottom:6px;}
+  #fin p{font-family:Arial,sans-serif;font-size:14px;color:#c9ccc0;margin-bottom:20px;line-height:1.5;}
+  #fin button{font-family:inherit;font-size:16px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:14px 34px;}
+  #fin button:active{transform:scale(.96);}
+  footer{width:100%;max-width:430px;padding:8px 16px 14px;text-align:center;
+    font-family:Arial,sans-serif;font-size:11px;color:#6c7064;letter-spacing:.5px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">PUISSANCE 4 <span>FASO</span><small>ALIGNE 4 JETONS</small></div>
+  <div style="display:flex;align-items:center;gap:0"><button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:32px;height:32px;font-size:14px;margin-right:8px">🔊</button>
+<div class="marque"><span class="toi" id="sToi">0</span><span class="sep">—</span><span class="ia" id="sIa">0</span></div>
+</div>
+</header>
+<div id="msg">Touche une colonne pour lâcher ton jeton 🔴</div>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="fin"><h2 id="finTitre"></h2><p id="finTexte"></p><button id="rejouer">REJOUER</button></div>
+</div>
+<footer>Démo VAS — classement hebdo &amp; lots airtime à venir</footer>
+<script>
+(function(){
+"use strict";
+// ===== Kit sonore Faso Games (synthétisé, 0 Ko d'assets, silencieux par défaut respecté) =====
+var SFX=(function(){
+  var ctx,muet=false;
+  try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+  function ac(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();return ctx;}
+  function tone(freq,dur,type,vol,glide){
+    if(muet)return;
+    try{
+      var c=ac();var o=c.createOscillator();var g=c.createGain();
+      o.type=type||'sine';o.frequency.value=freq;
+      if(glide)o.frequency.linearRampToValueAtTime(glide,c.currentTime+dur);
+      g.gain.value=vol||0.15;
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+      o.connect(g);g.connect(c.destination);
+      o.start();o.stop(c.currentTime+dur);
+    }catch(e){}
+  }
+  return{
+    tap:function(){tone(440,0.05,'square',0.08);},
+    bon:function(){tone(523,0.09,'sine',0.14);setTimeout(function(){tone(784,0.12,'sine',0.14);},70);},
+    mauvais:function(){tone(160,0.22,'sawtooth',0.12,90);},
+    victoire:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.15);},i*90);});},
+    defaite:function(){[392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.22,'sine',0.12);},i*120);});},
+    piece:function(){tone(988,0.08,'triangle',0.12,1400);},
+    tick:function(){tone(300,0.03,'square',0.05);},
+    estMuet:function(){return muet;},
+    toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+  };
+})();
+// Bouton mute (à placer dans le header de chaque jeu)
+function initBoutonSon(id){
+  var b=document.getElementById(id);
+  if(!b)return;
+  function maj(){b.textContent=SFX.estMuet()?'🔇':'🔊';}
+  maj();
+  b.addEventListener('click',function(){SFX.toggle();maj();});
+}
+// Confetti simple (petites particules colorées, pour les écrans de victoire)
+function confetti(canvas,ctx,cx,cy){
+  var parts=[];
+  var couleurs=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<24;i++){
+    var a=Math.random()*Math.PI*2,v=2+Math.random()*3;
+    parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,g:0.12,vie:1,col:couleurs[i%couleurs.length],taille:3+Math.random()*3});
+  }
+  return parts;
+}
+function drawConfetti(ctx,parts,dt){
+  for(var i=parts.length-1;i>=0;i--){
+    var p=parts[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vie-=0.018*dt;
+    if(p.vie<=0){parts.splice(i,1);continue;}
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.taille/2,p.y-p.taille/2,p.taille,p.taille);
+    ctx.globalAlpha=1;
+  }
+}
+initBoutonSon("btnSon");
+
+const COLS=7, ROWS=6;
+const cvs=document.getElementById('c'),ctx=cvs.getContext('2d');
+const sToi=document.getElementById('sToi'),sIa=document.getElementById('sIa');
+const msg=document.getElementById('msg'),fin=document.getElementById('fin');
+const finTitre=document.getElementById('finTitre'),finTexte=document.getElementById('finTexte');
+let W=0,H=0,DPR=1,cell=0,ox=0,oy=0,topZone=0;
+let confettiParts=[];
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  const r=cvs.parentElement.getBoundingClientRect();
+  W=r.width-24;H=r.height-8;
+  cvs.style.width=W+'px';cvs.style.height=H+'px';
+  cvs.width=W*DPR;cvs.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  topZone=48;
+  cell=Math.min((W-16)/COLS,(H-topZone-16)/ROWS);
+  ox=(W-cell*COLS)/2; oy=topZone+(H-topZone-cell*ROWS)/2;
+}
+window.addEventListener('resize',resize);
+
+let board, phase, scoreToi=0, scoreIa=0, drop=null, hoverCol=3, winCells=[];
+function reset(){
+  board=Array.from({length:ROWS},()=>new Array(COLS).fill(0));
+  phase='joueur'; drop=null; winCells=[];
+  msg.textContent="Touche une colonne pour lâcher ton jeton 🔴";
+}
+function libreRow(c){
+  for(let r=ROWS-1;r>=0;r--)if(board[r][c]===0)return r;
+  return -1;
+}
+function poser(c,joueur){
+  const r=libreRow(c);
+  if(r<0)return false;
+  drop={c,r,y:oy-cell,vy:0,val:joueur};
+  return true;
+}
+function gagne(bd,val){
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    if(bd[r][c]!==val)continue;
+    for(const [dr,dc] of [[0,1],[1,0],[1,1],[1,-1]]){
+      const cells=[[r,c]];
+      for(let k=1;k<4;k++){
+        const nr=r+dr*k,nc=c+dc*k;
+        if(nr<0||nr>=ROWS||nc<0||nc>=COLS||bd[nr][nc]!==val)break;
+        cells.push([nr,nc]);
+      }
+      if(cells.length===4)return cells;
+    }
+  }
+  return null;
+}
+function plein(bd){return bd[0].every(x=>x!==0);}
+
+// --- IA minimax ---
+function evalPos(bd){
+  let sc=0;
+  const lignes=[];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    for(const [dr,dc] of [[0,1],[1,0],[1,1],[1,-1]]){
+      const cells=[];
+      for(let k=0;k<4;k++){
+        const nr=r+dr*k,nc=c+dc*k;
+        if(nr<0||nr>=ROWS||nc<0||nc>=COLS){cells.length=0;break;}
+        cells.push(bd[nr][nc]);
+      }
+      if(cells.length===4)lignes.push(cells);
+    }
+  }
+  for(const l of lignes){
+    const ia=l.filter(x=>x===-1).length, toi=l.filter(x=>x===1).length;
+    if(ia&&toi)continue;
+    if(ia===3)sc+=50; else if(ia===2)sc+=8; else if(ia===1)sc+=1;
+    if(toi===3)sc-=55; else if(toi===2)sc-=8; else if(toi===1)sc-=1;
+  }
+  // préférence centrale
+  for(let r=0;r<ROWS;r++)if(bd[r][3]===-1)sc+=3; else if(bd[r][3]===1)sc-=3;
+  return sc;
+}
+function cloneB(bd){return bd.map(r=>r.slice());}
+function poseSim(bd,c,val){
+  for(let r=ROWS-1;r>=0;r--)if(bd[r][c]===0){bd[r][c]=val;return r;}
+  return -1;
+}
+function minimax(bd,prof,alpha,beta,max){
+  const g1=gagne(bd,-1); if(g1)return {sc:1000+prof};
+  const g2=gagne(bd,1); if(g2)return {sc:-1000-prof};
+  if(prof===0||plein(bd))return {sc:evalPos(bd)};
+  const ordre=[3,2,4,1,5,0,6].filter(c=>bd[0][c]===0);
+  let bestC=ordre[0];
+  if(max){
+    let best=-Infinity;
+    for(const c of ordre){
+      const nb=cloneB(bd);poseSim(nb,c,-1);
+      const v=minimax(nb,prof-1,alpha,beta,false).sc;
+      if(v>best){best=v;bestC=c;}
+      alpha=Math.max(alpha,v);if(beta<=alpha)break;
+    }
+    return {sc:best,c:bestC};
+  }else{
+    let best=Infinity;
+    for(const c of ordre){
+      const nb=cloneB(bd);poseSim(nb,c,1);
+      const v=minimax(nb,prof-1,alpha,beta,true).sc;
+      if(v<best){best=v;bestC=c;}
+      beta=Math.min(beta,v);if(beta<=alpha)break;
+    }
+    return {sc:best,c:bestC};
+  }
+}
+function iaJoue(){
+  const res=minimax(board,5,-Infinity,Infinity,true);
+  let c=res.c;
+  if(c===undefined||board[0][c]!==0){
+    const libres=[];for(let i=0;i<COLS;i++)if(board[0][i]===0)libres.push(i);
+    c=libres[Math.floor(Math.random()*libres.length)];
+  }
+  poser(c,-1);
+}
+
+function finPartie(gagnant){
+  phase='over';
+  if(gagnant===1){scoreToi++;sToi.textContent=scoreToi;}
+  else if(gagnant===-1){scoreIa++;sIa.textContent=scoreIa;}
+  finTitre.textContent=gagnant===1?'🏆 GAGNÉ !':gagnant===-1?'PERDU':'MATCH NUL';
+  finTexte.textContent=gagnant===1?"Bien aligné ! Le classement hebdo t'attend."
+    :gagnant===-1?"L'IA t'a coiffé... Surveille ses alignements et prends ta revanche !"
+    :"Grille pleine, personne n'a gagné. On rejoue ?";
+  if(gagnant===1){SFX.victoire();confettiParts=confetti(cvs,ctx,W/2,H*0.4);}
+  else if(gagnant===-1){SFX.defaite();}else{SFX.tap();}
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Puissance 4',score:(gagnant===1?450:gagnant===0?200:100),victoire:gagnant===1},'*');}catch(e){}}
+  fin.style.display='flex';
+}
+document.getElementById('rejouer').addEventListener('click',()=>{fin.style.display='none';confettiParts=[];reset();});
+
+function step(dt){
+  if(!drop)return;
+  drop.vy+=1.4*dt;
+  drop.y+=drop.vy*dt;
+  const cible=oy+drop.r*cell;
+  if(drop.y>=cible){
+    board[drop.r][drop.c]=drop.val;
+    const who=drop.val;drop=null;
+    SFX.tick();
+    const g=gagne(board,who);
+    if(g){winCells=g;return finPartie(who);}
+    if(plein(board))return finPartie(0);
+    if(who===1){phase='ia';msg.textContent="L'IA réfléchit...";setTimeout(()=>{iaJoue();},400);}
+    else{phase='joueur';msg.textContent="À toi !";}
+  }
+}
+function draw(){
+  ctx.fillStyle='#12130F';ctx.fillRect(0,0,W,H);
+  // curseur
+  if(phase==='joueur'&&!drop){
+    const cx=ox+hoverCol*cell+cell/2;
+    ctx.fillStyle='#F5C21B';
+    ctx.beginPath();ctx.arc(cx,topZone/2,cell*0.32,0,7);ctx.fill();
+    ctx.fillStyle='#12130F';ctx.font='bold 14px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('▼',cx,topZone/2+1);
+  }
+  // plateau bleu
+  ctx.fillStyle='#3d5a80';
+  ctx.beginPath();ctx.roundRect(ox-8,oy-8,cell*COLS+16,cell*ROWS+16,14);ctx.fill();
+  // jeton qui tombe
+  if(drop){
+    const cx=ox+drop.c*cell+cell/2;
+    ctx.fillStyle=drop.val===1?'#F5C21B':'#E32219';
+    ctx.beginPath();ctx.arc(cx,drop.y+cell/2,cell*0.40,0,7);ctx.fill();
+  }
+  // trous + jetons posés
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const cx=ox+c*cell+cell/2, cy=oy+r*cell+cell/2;
+    const v=board[r][c];
+    if(v===0){
+      ctx.fillStyle='#12130F';
+      ctx.beginPath();ctx.arc(cx,cy,cell*0.40,0,7);ctx.fill();
+    }else{
+      const gagnant=winCells.some(w=>w[0]===r&&w[1]===c);
+      ctx.fillStyle=v===1?'#F5C21B':'#E32219';
+      ctx.beginPath();ctx.arc(cx,cy,cell*0.40,0,7);ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.28)';
+      ctx.beginPath();ctx.arc(cx-cell*0.12,cy-cell*0.12,cell*0.12,0,7);ctx.fill();
+      if(gagnant){
+        ctx.strokeStyle='#FAF7EF';ctx.lineWidth=3;
+        ctx.beginPath();ctx.arc(cx,cy,cell*0.40,0,7);ctx.stroke();
+      }
+    }
+  }
+}
+function colAt(x){
+  const c=Math.floor((x-ox)/cell);
+  return c>=0&&c<COLS?c:-1;
+}
+function tap(clientX){
+  if(phase!=='joueur'||drop)return;
+  const r=cvs.getBoundingClientRect();
+  const c=colAt(clientX-r.left);
+  if(c<0||libreRow(c)<0)return;
+  poser(c,1);
+}
+cvs.addEventListener('touchstart',e=>{
+  const r=cvs.getBoundingClientRect();
+  const c=colAt(e.touches[0].clientX-r.left);if(c>=0)hoverCol=c;
+  tap(e.touches[0].clientX);e.preventDefault();
+},{passive:false});
+cvs.addEventListener('mousemove',e=>{
+  const r=cvs.getBoundingClientRect();
+  const c=colAt(e.clientX-r.left);if(c>=0)hoverCol=c;
+});
+cvs.addEventListener('mousedown',e=>{tap(e.clientX);});
+window.__p4={state:()=>({phase,scoreToi,scoreIa,board:board.map(r=>r.slice()),confettiN:confettiParts.length,muet:SFX.estMuet()}),
+  jouer:c=>{if(phase==='joueur'&&!drop&&libreRow(c)>=0)poser(c,1);},
+  forcerVictoire:()=>finPartie(1)};
+let last=0;
+function loop(now){
+  const dt=Math.min(2.5,(now-last)/16.7);last=now;
+  step(dt);draw();
+  if(confettiParts.length)drawConfetti(ctx,confettiParts,dt);
+  requestAnimationFrame(loop);
+}
+resize();reset();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

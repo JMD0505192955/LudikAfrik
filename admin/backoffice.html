@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ludikafrik — Back-office</title>
+<style>
+  :root{--bleu:#012662;--jaune:#FBAD01;--ivoire:#FFF8E8;--ciel:#DCE8F8;--vert:#3c8a4a;--rouge:#c0392b;
+        --txt:#20211d;--txt2:#7a8194;--bord:#eae3d4;--fond:#f4efe4;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:"Segoe UI",system-ui,Arial,sans-serif;background:var(--fond);color:var(--txt);}
+  #app{display:flex;min-height:100vh;}
+  /* barre latérale */
+  aside{width:230px;background:#fcfaf3;border-right:1px solid var(--bord);position:fixed;top:0;bottom:0;left:0;
+    padding:20px 14px;display:flex;flex-direction:column;overflow-y:auto;}
+  .marque{display:flex;align-items:center;gap:10px;padding:4px 8px 20px;}
+  .marque svg{width:32px;height:32px;}
+  .marque b{font-size:15px;color:var(--bleu);letter-spacing:.5px;}
+  nav{display:flex;flex-direction:column;gap:2px;}
+  .navcat{font-size:10px;letter-spacing:1.5px;color:var(--txt2);font-weight:700;padding:16px 12px 6px;}
+  nav button{display:flex;align-items:center;gap:11px;padding:10px 12px;border:none;background:none;
+    border-radius:10px;color:#5a6274;font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;text-align:left;width:100%;}
+  nav button:hover{background:rgba(1,38,98,.06);}
+  nav button.actif{background:var(--ciel);color:var(--bleu);}
+  nav button .ic{font-size:16px;width:18px;text-align:center;}
+  nav button:disabled{opacity:.4;cursor:not-allowed;}
+  aside .bas{margin-top:auto;padding-top:16px;}
+  .deco{display:flex;align-items:center;gap:10px;padding:10px 12px;background:none;border:none;
+    color:var(--rouge);font-family:inherit;font-size:13px;cursor:pointer;width:100%;border-radius:10px;}
+  .deco:hover{background:#fdeceb;}
+  /* contenu */
+  main{flex:1;margin-left:230px;}
+  header{background:var(--fond);border-bottom:1px solid var(--bord);padding:14px 28px;
+    display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
+  header .fil{font-size:13px;color:var(--txt2);}
+  header .fil b{color:var(--txt);}
+  header .prof{display:flex;align-items:center;gap:9px;font-size:13px;}
+  header .av{width:30px;height:30px;border-radius:50%;background:var(--bleu);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
+  header .role{font-size:11px;color:var(--txt2);}
+  .wrap{padding:24px 28px 50px;max-width:1100px;}
+  h1{font-size:24px;font-weight:800;margin-bottom:4px;}
+  .soustitre{font-size:13.5px;color:var(--txt2);margin-bottom:22px;}
+  .bloc{background:#fff;border:1px solid var(--bord);border-radius:16px;overflow:hidden;margin-bottom:20px;}
+  .bloc h2{font-size:15px;padding:15px 20px;border-bottom:1px solid var(--bord);display:flex;
+    align-items:center;justify-content:space-between;}
+  .btn{background:var(--bleu);color:#fff;border:none;border-radius:9px;padding:8px 14px;
+    font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;}
+  .btn.j{background:var(--jaune);color:var(--bleu);}
+  .btn.pale{background:rgba(1,38,98,.08);color:var(--bleu);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;padding:10px 20px;color:var(--txt2);font-weight:600;font-size:11px;
+    text-transform:uppercase;letter-spacing:.5px;background:#fbf9f2;}
+  td{padding:11px 20px;border-top:1px solid #f2ece0;}
+  tr:hover td{background:#fcfbf6;}
+  .puce{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:600;}
+  .puce.oui{background:#e3f4e8;color:#1a8a44;}
+  .puce.non{background:#eee;color:#777;}
+  .puce.op{background:var(--ciel);color:var(--bleu);}
+  .vide{padding:26px 20px;text-align:center;color:var(--txt2);font-size:13px;}
+  .vue{display:none;}.vue.active{display:block;}
+  /* modale */
+  .voile{display:none;position:fixed;inset:0;z-index:60;background:rgba(1,38,98,.3);
+    align-items:center;justify-content:center;padding:20px;}
+  .voile.on{display:flex;}
+  .modale{background:#fff;border-radius:18px;width:100%;max-width:440px;padding:24px;max-height:88vh;overflow-y:auto;}
+  .modale h3{font-size:18px;color:var(--bleu);margin-bottom:16px;}
+  label{display:block;font-size:12.5px;font-weight:600;color:#4a5266;margin:12px 0 5px;}
+  input,select{width:100%;padding:10px 12px;border:1.5px solid var(--bord);border-radius:10px;
+    font-size:14px;font-family:inherit;background:#fbfaf5;color:var(--bleu);}
+  .modale .actions{display:flex;gap:10px;margin-top:20px;}
+  .modale .actions button{flex:1;padding:12px;border-radius:10px;font-weight:700;font-family:inherit;cursor:pointer;border:none;}
+  .err{color:var(--rouge);font-size:12.5px;margin-top:10px;display:none;}
+  @media(max-width:800px){aside{width:60px;padding:14px 6px;}.marque b,nav button span:not(.ic),.deco span,.navcat{display:none;}main{margin-left:60px;}}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <div class="marque">
+      <svg viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="#111"/><path d="M15 12 C15 10.5 16.5 10 17.5 10.7 L28 18 C29 18.7 29 19.8 28 20.5 L17.5 27.8 C16.5 28.5 15 28 15 26.5 Z" fill="#fff"/><circle cx="27" cy="27" r="4" fill="#FBAD01"/></svg>
+      <b>LUDIKAFRIK</b>
+    </div>
+    <nav id="nav">
+      <div class="navcat">Fondations</div>
+      <button class="actif" data-vue="acces" data-perm="acces.lire"><span class="ic">🔑</span><span>Accès &amp; rôles</span></button>
+      <button data-vue="pays" data-perm="pays.lire"><span class="ic">🌍</span><span>Pays &amp; opérateurs</span></button>
+      <div class="navcat">Bientôt</div>
+      <button data-vue="joueurs" data-perm="joueurs.lire"><span class="ic">👥</span><span>Joueurs</span></button>
+      <button data-vue="jeux" data-perm="jeux.lire"><span class="ic">🎮</span><span>Jeux</span></button>
+      <button data-vue="regles" data-perm="regles.lire"><span class="ic">⭐</span><span>Points &amp; règles</span></button>
+      <button data-vue="pass" data-perm="pass.lire"><span class="ic">🎫</span><span>Pass &amp; monétisation</span></button>
+      <button data-vue="finances" data-perm="finances.lire"><span class="ic">💳</span><span>Finances</span></button>
+      <button data-vue="competitions" data-perm="competitions.lire"><span class="ic">🏆</span><span>Compétitions</span></button>
+      <div class="navcat">Communication</div>
+      <button data-vue="notifications" data-perm="notifs.lire"><span class="ic">🔔</span><span>Notifications</span></button>
+    </nav>
+    <div class="bas">
+      <button class="deco" id="deco"><span class="ic">⏻</span><span>Déconnexion</span></button>
+    </div>
+  </aside>
+
+  <main>
+    <header>
+      <div class="fil">Back-office <b id="filVue">/ Accès &amp; rôles</b></div>
+      <div class="prof"><div class="av" id="av">AD</div><div><div id="nomAdmin">Admin</div><div class="role" id="roleAdmin"></div></div></div>
+    </header>
+    <div class="wrap">
+
+      <!-- MODULE ACCÈS & RÔLES -->
+      <div class="vue active" id="v-acces">
+        <h1>Accès &amp; rôles</h1>
+        <div class="soustitre">Comptes de l'équipe et des opérateurs partenaires, rôles et journal d'audit.</div>
+        <div class="bloc">
+          <h2>Comptes <button class="btn j" id="btnNouvelAdmin">+ Nouveau compte</button></h2>
+          <table><thead><tr><th>Nom</th><th>Courriel</th><th>Rôle</th><th>Périmètre</th><th>Statut</th></tr></thead>
+            <tbody id="tAdmins"></tbody></table>
+          <div class="vide" id="videAdmins" style="display:none">Aucun compte.</div>
+        </div>
+        <div class="bloc">
+          <h2>Journal d'audit</h2>
+          <table><thead><tr><th>Date</th><th>Qui</th><th>Action</th><th>Ressource</th></tr></thead>
+            <tbody id="tAudit"></tbody></table>
+          <div class="vide" id="videAudit" style="display:none">Journal vide.</div>
+        </div>
+      </div>
+
+      <!-- MODULE PASS & MONÉTISATION -->
+      <div class="vue" id="v-pass">
+        <h1>Pass &amp; monétisation</h1>
+        <div class="soustitre">Types de pass par pays, ventes et codes promo.</div>
+        <div class="bloc">
+          <h2>Types de pass <button class="btn j" id="btnNouveauPass">+ Ajouter</button></h2>
+          <table><thead><tr><th>Pays</th><th>Pass</th><th>Durée</th><th>Prix</th><th>Statut</th></tr></thead>
+            <tbody id="tPassTypes"></tbody></table>
+          <div class="vide" id="videPass" style="display:none">Aucun pass.</div>
+        </div>
+        <div class="bloc">
+          <h2>Ventes récentes</h2>
+          <table><thead><tr><th>Joueur</th><th>Pass</th><th>Montant</th><th>Pays</th><th>Date</th></tr></thead>
+            <tbody id="tVentes"></tbody></table>
+          <div class="vide" id="videVentes" style="display:none">Aucune vente.</div>
+        </div>
+        <div class="bloc">
+          <h2>Codes promo <button class="btn j" id="btnNouvellePromo">+ Ajouter</button></h2>
+          <table><thead><tr><th>Code</th><th>Type</th><th>Valeur</th><th>Usages</th><th>Statut</th></tr></thead>
+            <tbody id="tPromos"></tbody></table>
+          <div class="vide" id="videPromos" style="display:none">Aucun code promo.</div>
+        </div>
+      </div>
+
+      <!-- MODULE POINTS & RÈGLES -->
+      <div class="vue" id="v-regles">
+        <h1>Points, règles &amp; progression</h1>
+        <div class="soustitre">Barème de points, conversions et paramètres des classements.</div>
+        <div class="bloc">
+          <h2>Barème de points</h2>
+          <table><thead><tr><th>Action</th><th>Points</th><th>Statut</th><th></th></tr></thead>
+            <tbody id="tBareme"></tbody></table>
+        </div>
+        <div class="bloc">
+          <h2>Conversions points → récompenses <button class="btn j" id="btnNouvelleConv">+ Ajouter</button></h2>
+          <table><thead><tr><th>Récompense</th><th>Coût</th><th>Type</th><th>Statut</th></tr></thead>
+            <tbody id="tConversions"></tbody></table>
+        </div>
+        <div class="bloc">
+          <h2>Classements</h2>
+          <table><thead><tr><th>Classement</th><th>Période</th><th>Taille</th><th>Lots</th><th></th></tr></thead>
+            <tbody id="tClassements"></tbody></table>
+        </div>
+      </div>
+
+      <!-- MODULE JEUX -->
+      <div class="vue" id="v-jeux">
+        <h1>Jeux</h1>
+        <div class="soustitre">Catalogue, mise en avant, disponibilité par pays et statistiques.</div>
+        <div class="bloc">
+          <h2>Catalogue <button class="btn j" id="btnNouveauJeu">+ Ajouter un jeu</button></h2>
+          <table><thead><tr><th>Jeu</th><th>Catégorie</th><th>À la une</th><th>Statut</th><th></th></tr></thead>
+            <tbody id="tJeux"></tbody></table>
+          <div class="vide" id="videJeux" style="display:none">Aucun jeu.</div>
+        </div>
+      </div>
+
+      <!-- MODULE JOUEURS -->
+      <div class="vue" id="v-joueurs">
+        <h1>Utilisateurs (joueurs)</h1>
+        <div class="soustitre">Recherche, fiches, modération et réclamations.</div>
+        <div class="bloc">
+          <h2>Joueurs
+            <span style="display:flex;gap:8px">
+              <input id="rechJoueur" placeholder="pseudo ou numéro…" style="width:180px;padding:7px 10px;font-size:12.5px">
+              <select id="filtreStatut" style="width:auto;padding:7px 10px;font-size:12.5px"><option value="">Tous</option><option value="actif">Actif</option><option value="essai">Essai</option><option value="suspendu">Suspendu</option><option value="banni">Banni</option></select>
+            </span>
+          </h2>
+          <table><thead><tr><th>Pseudo</th><th>Numéro</th><th>Pays</th><th>Statut</th><th>Inscrit</th><th></th></tr></thead>
+            <tbody id="tJoueurs"></tbody></table>
+          <div class="vide" id="videJoueurs" style="display:none">Aucun joueur.</div>
+        </div>
+      </div>
+
+      <!-- MODULE NOTIFICATIONS -->
+      <div class="vue" id="v-notifications">
+        <h1>Notifications</h1>
+        <div class="soustitre">Création, programmation et lien vers un contenu précis de l\'app.</div>
+        <div class="bloc">
+          <h2>Notifications <button class="btn j" id="btnNouvelleNotif">+ Nouvelle notification</button></h2>
+          <table><thead><tr><th>Titre</th><th>Cible</th><th>Audience</th><th>Statut</th><th></th></tr></thead>
+            <tbody id="tNotifs"></tbody></table>
+          <div class="vide" id="videNotifs" style="display:none">Aucune notification.</div>
+        </div>
+      </div>
+
+      <!-- MODULE COMPÉTITIONS -->
+      <div class="vue" id="v-competitions">
+        <h1>Compétitions</h1>
+        <div class="soustitre">Création, validation des compétitions sponsorisées, classement live.</div>
+        <div class="bloc" id="blocValidation" style="display:none">
+          <h2>⏳ En attente de validation</h2>
+          <table><thead><tr><th>Titre</th><th>Sponsor</th><th>Période</th><th></th></tr></thead>
+            <tbody id="tValidation"></tbody></table>
+        </div>
+        <div class="bloc">
+          <h2>Compétitions <button class="btn j" id="btnNouvelleComp">+ Nouvelle compétition</button></h2>
+          <table><thead><tr><th>Titre</th><th>Type</th><th>Période</th><th>Statut</th><th></th></tr></thead>
+            <tbody id="tComps"></tbody></table>
+          <div class="vide" id="videComps" style="display:none">Aucune compétition.</div>
+        </div>
+      </div>
+
+      <!-- MODULE FINANCES -->
+      <div class="vue" id="v-finances">
+        <h1>Finances &amp; paiements</h1>
+        <div class="soustitre">Transactions, réconciliation par opérateur et export comptable.</div>
+        <div id="finResume" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px"></div>
+        <div class="bloc">
+          <h2>Réconciliation
+            <span style="display:flex;gap:8px;align-items:center">
+              <button class="btn pale" id="btnExportFin">⭳ Export CSV</button>
+              <button class="btn j" id="btnReconc">+ Générer un relevé</button>
+            </span>
+          </h2>
+          <table><thead><tr><th>Opérateur</th><th>Période</th><th>Collecté</th><th>À reverser</th><th>Reçu</th><th>Écart</th><th>Statut</th></tr></thead>
+            <tbody id="tReconc"></tbody></table>
+          <div class="vide" id="videReconc" style="display:none">Aucun relevé. Génère-en un pour une période.</div>
+        </div>
+        <div class="bloc">
+          <h2>Transactions récentes
+            <select id="finStatut" style="width:auto;padding:6px 10px;font-size:12.5px"><option value="">Tous</option><option value="reussi">Réussi</option><option value="en_attente">En attente</option><option value="echec">Échec</option><option value="rembourse">Remboursé</option></select>
+          </h2>
+          <table><thead><tr><th>Date</th><th>Joueur</th><th>Montant</th><th>Pays</th><th>Moyen</th><th>Statut</th></tr></thead>
+            <tbody id="tTransactions"></tbody></table>
+          <div class="vide" id="videTx" style="display:none">Aucune transaction.</div>
+        </div>
+      </div>
+
+      <!-- MODULE PAYS & OPÉRATEURS -->
+      <div class="vue" id="v-pays">
+        <h1>Pays &amp; opérateurs</h1>
+        <div class="soustitre">Marchés, opérateurs, taux de reversement et moyens de paiement.</div>
+        <div class="bloc">
+          <h2>Pays <button class="btn j" id="btnNouveauPays">+ Ajouter un pays</button></h2>
+          <table><thead><tr><th>Pays</th><th>Indicatif</th><th>Devise</th><th>Opérateurs</th><th>Statut</th><th></th></tr></thead>
+            <tbody id="tPays"></tbody></table>
+          <div class="vide" id="videPays" style="display:none">Aucun pays.</div>
+        </div>
+        <div class="bloc" id="blocOperateurs" style="display:none">
+          <h2 id="titreOp">Opérateurs <button class="btn j" id="btnNouvelOp">+ Ajouter un opérateur</button></h2>
+          <table><thead><tr><th>Opérateur</th><th>Type</th><th>Reversement</th><th>Statut</th><th></th></tr></thead>
+            <tbody id="tOperateurs"></tbody></table>
+          <div class="vide" id="videOp" style="display:none">Aucun opérateur pour ce pays.</div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- modales -->
+<div class="voile" id="voile"><div class="modale" id="modale"></div></div>
+
+<script>
+  var $=function(i){return document.getElementById(i);};
+  var JETON=localStorage.getItem('ludik_admin_jeton');
+  if(!JETON) location.href='connexion.html';
+  var MOI=null, paysSel=null;
+
+  async function api(methode, url, corps){
+    var opt={method:methode,headers:{'Authorization':'Bearer '+JETON}};
+    if(corps){opt.headers['Content-Type']='application/json';opt.body=JSON.stringify(corps);}
+    var r=await fetch('/api'+url,opt);
+    if(r.status===401){localStorage.removeItem('ludik_admin_jeton');location.href='connexion.html';return null;}
+    return {status:r.status, data:await r.json()};
+  }
+  function dateFr(s){try{return new Date(s).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){return '—';}}
+
+  // navigation
+  document.querySelectorAll('nav button[data-vue]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('nav button').forEach(function(x){x.classList.remove('actif');});
+      b.classList.add('actif');
+      document.querySelectorAll('.vue').forEach(function(v){v.classList.remove('active');});
+      $('v-'+b.dataset.vue).classList.add('active');
+      $('filVue').textContent='/ '+b.querySelector('span:last-child').textContent;
+      charger(b.dataset.vue);
+    });
+  });
+  $('deco').addEventListener('click',function(){localStorage.removeItem('ludik_admin_jeton');location.href='connexion.html';});
+
+  // ===== ACCÈS & RÔLES =====
+  async function chargerAcces(){
+    var r=await api('GET','/bo/admins'); if(!r)return;
+    if(r.status!==200){$('tAdmins').innerHTML='';$('videAdmins').textContent=r.data.erreur||'Accès refusé.';$('videAdmins').style.display='block';return;}
+    var a=r.data.admins||[];
+    $('videAdmins').style.display=a.length?'none':'block';
+    $('tAdmins').innerHTML=a.map(function(x){
+      var perim=x.pays_iso?('<span class="puce op">'+x.pays_iso+'</span>'):'<span style="color:#aaa">Tous</span>';
+      return '<tr><td><b>'+x.nom+'</b></td><td>'+x.courriel+'</td><td>'+(x.role_libelle||x.role||'—')+'</td>'+
+        '<td>'+perim+'</td><td>'+(x.suspendu?'<span class="puce non">Suspendu</span>':'<span class="puce oui">Actif</span>')+'</td></tr>';
+    }).join('');
+    // audit
+    var ra=await api('GET','/bo/audit');
+    if(ra&&ra.status===200){
+      var au=ra.data.audit||[];
+      $('videAudit').style.display=au.length?'none':'block';
+      $('tAudit').innerHTML=au.map(function(x){
+        return '<tr><td>'+dateFr(x.cree_le)+'</td><td>'+(x.admin_nom||'—')+'</td><td>'+x.action+'</td><td>'+(x.ressource||'—')+'</td></tr>';
+      }).join('');
+    }
+  }
+
+  $('btnNouvelAdmin').addEventListener('click',function(){
+    modaleNouvelAdmin();
+  });
+  async function modaleNouvelAdmin(){
+    var rr=await api('GET','/bo/roles');
+    var roles=(rr&&rr.data.roles)||[];
+    var rp=await api('GET','/bo/pays');
+    var pays=(rp&&rp.data.pays)||[];
+    $('modale').innerHTML=
+      '<h3>Nouveau compte</h3>'+
+      '<label>Nom</label><input id="mNom" placeholder="Nom complet">'+
+      '<label>Courriel</label><input id="mMail" type="email" placeholder="courriel@exemple.com">'+
+      '<label>Mot de passe</label><input id="mMdp" type="password" placeholder="8 caractères minimum">'+
+      '<label>Rôle</label><select id="mRole">'+roles.map(function(r){return '<option value="'+r.code+'" data-interne="'+r.interne+'">'+r.libelle+'</option>';}).join('')+'</select>'+
+      '<div id="mPerim" style="display:none"><label>Pays (périmètre opérateur)</label><select id="mPays"><option value="">—</option>'+pays.map(function(p){return '<option value="'+p.iso+'">'+p.nom+'</option>';}).join('')+'</select></div>'+
+      '<div class="err" id="mErr"></div>'+
+      '<div class="actions"><button class="pale" style="background:rgba(1,38,98,.08);color:#012662" onclick="fermerModale()">Annuler</button><button style="background:#FBAD01;color:#012662" id="mOk">Créer</button></div>';
+    $('mRole').addEventListener('change',function(){
+      var interne=this.selectedOptions[0].dataset.interne==='true';
+      $('mPerim').style.display=interne?'none':'block';
+    });
+    $('mOk').addEventListener('click',async function(){
+      var body={nom:$('mNom').value.trim(),courriel:$('mMail').value.trim(),motdepasse:$('mMdp').value,role_code:$('mRole').value};
+      var interne=$('mRole').selectedOptions[0].dataset.interne==='true';
+      if(!interne){body.pays_iso=$('mPays').value;}
+      var r=await api('POST','/bo/admins',body);
+      if(r&&r.status===200){fermerModale();chargerAcces();}
+      else{$('mErr').textContent=(r&&r.data.erreur)||'Erreur.';$('mErr').style.display='block';}
+    });
+    ouvrirModale();
+  }
+
+  // ===== PAYS & OPÉRATEURS =====
+  async function chargerPays(){
+    var r=await api('GET','/bo/pays'); if(!r)return;
+    if(r.status!==200){$('tPays').innerHTML='';$('videPays').textContent=r.data.erreur||'Accès refusé.';$('videPays').style.display='block';return;}
+    var pays=r.data.pays||[];
+    $('videPays').style.display=pays.length?'none':'block';
+    $('tPays').innerHTML=pays.map(function(p){
+      return '<tr><td><b>'+p.nom+'</b></td><td>'+p.indicatif+'</td><td>'+p.devise+'</td>'+
+        '<td>'+p.nb_operateurs+'</td>'+
+        '<td>'+(p.actif?'<span class="puce oui">Actif</span>':'<span class="puce non">Inactif</span>')+'</td>'+
+        '<td><button class="btn pale" data-pays="'+p.iso+'" data-id="'+p.id+'" data-actif="'+p.actif+'">Gérer</button></td></tr>';
+    }).join('');
+    $('tPays').querySelectorAll('[data-pays]').forEach(function(b){
+      b.addEventListener('click',function(){ouvrirPays(b.dataset.pays,b.dataset.id,b.dataset.actif==='true');});
+    });
+  }
+  async function ouvrirPays(iso,id,actif){
+    paysSel={iso:iso,id:id};
+    $('blocOperateurs').style.display='block';
+    $('titreOp').childNodes[0].nodeValue='Opérateurs de '+iso+' ';
+    var r=await api('GET','/bo/pays/'+iso+'/operateurs');
+    if(!r||r.status!==200){$('tOperateurs').innerHTML='';$('videOp').textContent=(r&&r.data.erreur)||'Accès refusé.';$('videOp').style.display='block';return;}
+    var ops=r.data.operateurs||[];
+    $('videOp').style.display=ops.length?'none':'block';
+    $('tOperateurs').innerHTML=ops.map(function(o){
+      return '<tr><td><b>'+o.nom+'</b><br><span style="color:#aaa;font-size:11px">'+o.code+'</span></td>'+
+        '<td>'+(o.type==='mobilemoney'?'Mobile Money':'Airtime')+'</td>'+
+        '<td>'+(o.taux_reversement?o.taux_reversement+' %':'—')+'</td>'+
+        '<td>'+(o.actif?'<span class="puce oui">Actif</span>':'<span class="puce non">Inactif</span>')+'</td>'+
+        '<td><button class="btn pale" data-op="'+o.id+'" data-actif="'+o.actif+'">'+(o.actif?'Désactiver':'Activer')+'</button></td></tr>';
+    }).join('');
+    $('tOperateurs').querySelectorAll('[data-op]').forEach(function(b){
+      b.addEventListener('click',async function(){
+        await api('PATCH','/bo/operateurs/'+b.dataset.op,{actif:b.dataset.actif!=='true'});
+        ouvrirPays(iso,id,actif);
+      });
+    });
+    document.getElementById('blocOperateurs').scrollIntoView({behavior:'smooth'});
+  }
+  $('btnNouveauPays').addEventListener('click',function(){
+    $('modale').innerHTML=
+      '<h3>Ajouter un pays</h3>'+
+      '<label>Code ISO (2 lettres)</label><input id="pIso" maxlength="2" placeholder="CI, TG, BF...">'+
+      '<label>Nom</label><input id="pNom" placeholder="Cote dIvoire">'+
+      '<label>Indicatif</label><input id="pInd" placeholder="+225">'+
+      '<label>Devise</label><input id="pDev" value="XOF">'+
+      '<label>Longueur du numéro national</label><input id="pLen" type="number" placeholder="10">'+
+      '<div class="err" id="pErr"></div>'+
+      '<div class="actions"><button style="background:rgba(1,38,98,.08);color:#012662" onclick="fermerModale()">Annuler</button><button style="background:#FBAD01;color:#012662" id="pOk">Créer</button></div>';
+    $('pOk').addEventListener('click',async function(){
+      var body={iso:$('pIso').value.trim(),nom:$('pNom').value.trim(),indicatif:$('pInd').value.trim(),devise:$('pDev').value.trim(),longueur_num:parseInt($('pLen').value,10)||null};
+      var r=await api('POST','/bo/pays',body);
+      if(r&&r.status===200){fermerModale();chargerPays();}
+      else{$('pErr').textContent=(r&&r.data.erreur)||'Erreur.';$('pErr').style.display='block';}
+    });
+    ouvrirModale();
+  });
+  $('btnNouvelOp').addEventListener('click',function(){
+    if(!paysSel)return;
+    $('modale').innerHTML=
+      '<h3>Ajouter un opérateur ('+paysSel.iso+')</h3>'+
+      '<label>Code</label><input id="oCode" placeholder="orange-ci, moov-tg...">'+
+      '<label>Nom</label><input id="oNom" placeholder="Orange CI">'+
+      '<label>Type</label><select id="oType"><option value="airtime">Airtime (crédit téléphone)</option><option value="mobilemoney">Mobile Money</option></select>'+
+      '<label>Taux de reversement (%)</label><input id="oTaux" type="number" placeholder="70">'+
+      '<div class="err" id="oErr"></div>'+
+      '<div class="actions"><button style="background:rgba(1,38,98,.08);color:#012662" onclick="fermerModale()">Annuler</button><button style="background:#FBAD01;color:#012662" id="oOk">Créer</button></div>';
+    $('oOk').addEventListener('click',async function(){
+      var body={pays_iso:paysSel.iso,code:$('oCode').value.trim(),nom:$('oNom').value.trim(),type:$('oType').value,taux_reversement:parseFloat($('oTaux').value)||null};
+      var r=await api('POST','/bo/operateurs',body);
+      if(r&&r.status===200){fermerModale();ouvrirPays(paysSel.iso,paysSel.id,true);}
+      else{$('oErr').textContent=(r&&r.data.erreur)||'Erreur.';$('oErr').style.display='block';}
+    });
+    ouvrirModale();
+  });
+
+  function ouvrirModale(){$('voile').classList.add('on');}
+  function fermerModale(){$('voile').classList.remove('on');}
+  window.fermerModale=fermerModale;
+  $('voile').addEventListener('click',function(e){if(e.target===$('voile'))fermerModale();});
+
+  // ===== JOUEURS =====
+  var tmrJ;
+  async function chargerJoueurs(){
+    var qv=$('rechJoueur')?$('rechJoueur').value.trim():'';
+    var st=$('filtreStatut')?$('filtreStatut').value:'';
+    var url='/bo/joueurs?'+(qv?('q='+encodeURIComponent(qv)+'&'):'')+(st?('statut='+st):'');
+    var r=await api('GET',url); if(!r)return;
+    if(r.status!==200){$('tJoueurs').innerHTML='';$('videJoueurs').textContent=r.data.erreur||'Accès refusé.';$('videJoueurs').style.display='block';return;}
+    var j=r.data.joueurs||[];
+    $('videJoueurs').style.display=j.length?'none':'block';
+    $('tJoueurs').innerHTML=j.map(function(x){
+      var badge={actif:'oui',essai:'op',suspendu:'non',banni:'non',resilie:'non'}[x.statut]||'non';
+      return '<tr><td><b>'+(x.pseudo||'—')+'</b></td><td>'+x.telephone_masque+'</td><td>'+x.pays+'</td>'+
+        '<td><span class="puce '+badge+'">'+x.statut+'</span></td><td>'+dateFr(x.cree_le)+'</td>'+
+        '<td><button class="btn pale" data-fiche="'+x.id+'">Fiche</button></td></tr>';
+    }).join('');
+    $('tJoueurs').querySelectorAll('[data-fiche]').forEach(function(b){
+      b.addEventListener('click',function(){ficheJoueur(b.dataset.fiche);});
+    });
+  }
+  async function ficheJoueur(id){
+    var r=await api('GET','/bo/joueurs/'+id); if(!r||r.status!==200){alert((r&&r.data.erreur)||'Erreur');return;}
+    var j=r.data.joueur;
+    var passTxt=j.pass?(j.pass.pass+' (jusqu\'au '+dateFr(j.pass.fin)+')'):'Aucun';
+    $('modale').innerHTML=
+      '<h3>'+(j.pseudo||'Sans pseudo')+'</h3>'+
+      '<div style="font-size:13px;color:#7a8194;margin-bottom:14px">'+j.telephone_masque+' · '+j.pays+' · '+j.operateur+'</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">'+
+        '<div style="background:#FFF8E8;border-radius:10px;padding:12px;text-align:center"><div style="font-size:18px;font-weight:800;color:#012662">'+j.points+'</div><div style="font-size:10px;color:#7a8194">Points</div></div>'+
+        '<div style="background:#FFF8E8;border-radius:10px;padding:12px;text-align:center"><div style="font-size:18px;font-weight:800;color:#012662">'+j.parties_jouees+'</div><div style="font-size:10px;color:#7a8194">Parties</div></div>'+
+        '<div style="background:#FFF8E8;border-radius:10px;padding:12px;text-align:center"><div style="font-size:12px;font-weight:700;color:#012662;margin-top:4px">'+j.statut+'</div><div style="font-size:10px;color:#7a8194">Statut</div></div>'+
+      '</div>'+
+      '<div style="font-size:12.5px;color:#466154;margin-bottom:14px"><b>Pass :</b> '+passTxt+'</div>'+
+      '<label>Action de modération</label>'+
+      '<select id="fMod"><option value="">—</option><option value="suspension">Suspendre</option><option value="bannissement">Bannir</option><option value="reactivation">Réactiver</option><option value="reinitialisation">Réinitialiser le pseudo</option></select>'+
+      '<input id="fMotif" placeholder="Motif (optionnel)" style="margin-top:8px">'+
+      (j.moderation.length?'<div style="margin-top:14px;font-size:12px;color:#7a8194"><b>Historique :</b><br>'+j.moderation.map(function(m){return dateFr(m.cree_le)+' — '+m.action+(m.motif?' ('+m.motif+')':'');}).join('<br>')+'</div>':'')+
+      '<div class="err" id="fErr"></div>'+
+      '<div class="actions"><button style="background:rgba(1,38,98,.08);color:#012662" onclick="fermerModale()">Fermer</button><button style="background:#FBAD01;color:#012662" id="fOk">Appliquer</button></div>';
+    $('fOk').addEventListener('click',async function(){
+      var act=$('fMod').value; if(!act){fermerModale();return;}
+      var rr=await api('POST','/bo/joueurs/'+id+'/moderation',{action:act,motif:$('fMotif').value.trim()});
+      if(rr&&rr.status===200){fermerModale();chargerJoueurs();}
+      else{$('fErr').textContent=(rr&&rr.data.erreur)||'Erreur.';$('fErr').style.display='block';}
+    });
+    ouvrirModale();
+  }
+  if($('rechJoueur'))$('rechJoueur').addEventListener('input',function(){clearTimeout(tmrJ);tmrJ=setTimeout(chargerJoueurs,250);});
+  if($('filtreStatut'))$('filtreStatut').addEventListener('change',chargerJoueurs);
+
+  // ===== JEUX =====
+  async function chargerJeux(){
+    var r=await api('GET','/bo/jeux'); if(!r)return;
+    if(r.status!==200){$('tJeux').innerHTML='';$('videJeux').textContent=r.data.erreur||'Accès refusé.';$('videJeux').style.display='block';return;}
+    var j=r.data.jeux||[];
+    $('videJeux').style.display=j.length?'none':'block';
+    $('tJeux').innerHTML=j.map(function(x){
+      return '<tr><td><b>'+x.nom+'</b><br><span style="color:#aaa;font-size:11px">'+x.slug+'</span></td>'+
+        '<td>'+x.categorie+'</td>'+
+        '<td><button class="btn pale" data-avant="'+x.id+'" data-v="'+x.en_avant+'">'+(x.en_avant?'★ En avant':'☆ Non')+'</button></td>'+
+        '<td>'+(x.actif?'<span class="puce oui">Actif</span>':'<span class="puce non">Inactif</span>')+'</td>'+
+        '<td><button class="btn pale" data-actjeu="'+x.id+'" data-v="'+x.actif+'">'+(x.actif?'Désactiver':'Activer')+'</button> <button class="btn pale" data-paysjeu="'+x.id+'" data-nom="'+x.nom+'">Pays</button> <button class="btn pale" data-statjeu="'+x.id+'">Stats</button></td></tr>';
+    }).join('');
+    $('tJeux').querySelectorAll('[data-avant]').forEach(function(b){b.addEventListener('click',async function(){await api('PATCH','/bo/jeux/'+b.dataset.avant,{en_avant:b.dataset.v!=='true'});chargerJeux();});});
+    $('tJeux').querySelectorAll('[data-actjeu]').forEach(function(b){b.addEventListener('click',async function(){await api('PATCH','/bo/jeux/'+b.dataset.actjeu,{actif:b.dataset.v!=='true'});chargerJeux();});});
+    $('tJeux').querySelectorAll('[data-paysjeu]').forEach(function(b){b.addEventListener('click',function(){paysJeu(b.dataset.paysjeu,b.dataset.nom);});});
+    $('tJeux').querySelectorAll('[data-statjeu]').forEach(function(b){b.addEventListener('click',function(){statsJeu(b.dataset.statjeu);});});
+  }
+  async function paysJeu(id,nom){
+    var r=await api('GET','/bo/jeux/'+id+'/pays'); if(!r||r.status!==200)return;
+    var pays=r.data.pays||[];
+    $('modale').innerHTML='<h3>'+nom+' — disponibilité</h3>'+
+      '<div style="font-size:12.5px;color:#7a8194;margin-bottom:14px">Active ou masque ce jeu dans chaque pays.</div>'+
+      pays.map(function(p){return '<label style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f2ece0"><span>'+p.nom+'</span><button class="btn pale" data-tog="'+p.iso+'" data-d="'+p.disponible+'">'+(p.disponible?'Disponible':'Masqué')+'</button></label>';}).join('')+
+      '<div class="actions"><button style="background:#012662;color:#fff" onclick="fermerModale()">Fermer</button></div>';
+    $('modale').querySelectorAll('[data-tog]').forEach(function(b){
+      b.addEventListener('click',async function(){
+        await api('PUT','/bo/jeux/'+id+'/pays/'+b.dataset.tog,{disponible:b.dataset.d!=='true'});
+        paysJeu(id,nom);
+      });
+    });
+    ouvrirModale();
+  }
+  async function statsJeu(id){
+    var r=await api('GET','/bo/jeux/'+id+'/stats'); if(!r||r.status!==200)return;
+    var s=r.data;
+    $('modale').innerHTML='<h3>'+s.jeu+' — statistiques (7 j)</h3>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0">'+
+        '<div style="background:#FFF8E8;border-radius:10px;padding:14px;text-align:center"><div style="font-size:20px;font-weight:800;color:#012662">'+s.sessions_7j+'</div><div style="font-size:10px;color:#7a8194">Sessions</div></div>'+
+        '<div style="background:#FFF8E8;border-radius:10px;padding:14px;text-align:center"><div style="font-size:20px;font-weight:800;color:#012662">'+s.taux_victoire+'%</div><div style="font-size:10px;color:#7a8194">Victoires</div></div>'+
+        '<div style="background:#FFF8E8;border-radius:10px;padding:14px;text-align:center"><div style="font-size:20px;font-weight:800;color:#012662">'+s.meilleur_score+'</div><div style="font-size:10px;color:#7a8194">Meilleur</div></div>'+
+        '<div style="background:#FFF8E8;border-radius:10px;padding:14px;text-align:center"><div style="font-size:20px;font-weight:800;color:#012662">'+s.score_moyen+'</div><div style="font-size:10px;color:#7a8194">Moyen</div></div>'+
+      '</div>'+
+      (s.popularite_pays.length?'<div style="font-size:12.5px;color:#466154"><b>Popularité par pays :</b><br>'+s.popularite_pays.map(function(p){return p.pays+' : '+p.parties+' parties';}).join('<br>')+'</div>':'<div style="color:#7a8194;font-size:12.5px">Pas encore de données.</div>')+
+      '<div class="actions"><button style="background:#012662;color:#fff" onclick="fermerModale()">Fermer</button></div>';
+    ouvrirModale();
+  }
+  $('btnNouveauJeu').addEventListener('click',function(){
+    $('modale').innerHTML='<h3>Ajouter un jeu</h3>'+
+      '<label>Slug (identifiant)</label><input id="jSlug" placeholder="akim, dozo...">'+
+      '<label>Nom</label><input id="jNom" placeholder="Nom du jeu">'+
+      '<label>Catégorie</label><input id="jCat" placeholder="Aventure, Action...">'+
+      '<label>Fichier</label><input id="jFic" placeholder="akim.html">'+
+      '<div class="err" id="jErr"></div>'+
+      '<div class="actions"><button style="background:rgba(1,38,98,.08);color:#012662" onclick="fermerModale()">Annuler</button><button style="background:#FBAD01;color:#012662" id="jOk">Créer</button></div>';
+    $('jOk').addEventListener('click',async function(){
+      var r=await api('POST','/bo/jeux',{slug:$('jSlug').value.trim(),nom:$('jNom').value.trim(),categorie:$('jCat').value.trim(),fichier:$('jFic').value.trim()});
+      if(r&&r.status===200){fermerModale();chargerJeux();}
+      else{$('jErr').textContent=(r&&r.data.erreur)||'Erreur.';$('jErr').style.display='block';}
+    });
+    ouvrirModale();
+  });
+
+  // ===== POINTS & RÈGLES =====
+  async function chargerRegles(){
+    // barème
+    var rb=await api('GET','/bo/bareme');
+    if(rb&&rb.status===200){
+      $('tBareme').innerHTML=(rb.data.bareme||[]).map(function(x){
+        return '<tr><td><b>'+x.libelle+'</b></td><td><input type="number" value="'+x.points+'" data-bareme="'+x.id+'" style="width:80px;padding:5px 8px"></td>'+
+          '<td>'+(x.actif?'<span class="puce oui">Actif</span>':'<span class="puce non">Inactif</span>')+'</td>'+
+          '<td><button class="btn pale" data-savebareme="'+x.id+'">Enregistrer</button></td></tr>';
+      }).join('');
+      $('tBareme').querySelectorAll('[data-savebareme]').forEach(function(b){
+        b.addEventListener('click',async function(){
+          var inp=$('tBareme').querySelector('[data-bareme="'+b.dataset.savebareme+'"]');
+          await api('PATCH','/bo/bareme/'+b.dataset.savebareme,{points:parseInt(inp.value,10)});
+          b.textContent='✓ Enregistré';setTimeout(function(){b.textContent='Enregistrer';},1200);
+        });
+      });
+    }
+    // conversions
+    var rc=await api('GET','/bo/conversions');
+    if(rc&&rc.status===200){
+      $('tConversions').innerHTML=(rc.data.conversions||[]).map(function(x){
+        return '<tr><td><b>'+x.libelle+'</b></td><td>'+x.cout_points+' pts</td><td>'+x.recompense_type+' ('+x.recompense_valeur+')</td>'+
+          '<td>'+(x.actif?'<span class="puce oui">Actif</span>':'<span class="puce non">Inactif</span>')+'</td></tr>';
+      }).join('');
+    }
+    // classements
+    var rcl=await api('GET','/bo/classements');
+    if(rcl&&rcl.status===200){
+      $('tClassements').innerHTML=(rcl.data.classements||[]).map(function(x){
+        var lots=x.lots?Object.keys(x.lots).map(function(k){return k+'ᵉ: '+x.lots[k];}).join(', '):'—';
+        return '<tr><td><b>'+x.libelle+'</b></td><td>'+x.periode+'</td><td>'+x.taille+'</td><td style="font-size:12px">'+lots+'</td>'+
+          '<td><button class="btn pale" data-clot="'+x.id+'" data-lots='+"'"+JSON.stringify(x.lots||{})+"'"+'>Modifier lots</button></td></tr>';
+      }).join('');
+      $('tClassements').querySelectorAll('[data-clot]').forEach(function(b){
+        b.addEventListener('click',function(){modaleLots(b.dataset.clot,JSON.parse(b.dataset.lots));});
+      });
+    }
+  }
+  function modaleLots(id,lots){
+    $('modale').innerHTML='<h3>Lots du classement</h3>'+
+      '<label>1ᵉʳ place</label><input id="l1" value="'+(lots['1']||'')+'" placeholder="1000 F airtime">'+
+      '<label>2ᵉ place</label><input id="l2" value="'+(lots['2']||'')+'" placeholder="500 Mo">'+
+      '<label>3ᵉ place</label><input id="l3" value="'+(lots['3']||'')+'" placeholder="250 Mo">'+
+      '<div class="actions"><button style="background:rgba(1,38,98,.08);color:#012662" onclick="fermerModale()">Annuler</button><button style="background:#FBAD01;color:#012662" id="lOk">Enregistrer</button></div>';
+    $('lOk').addEventListener('click',async function(){
+      var nv={};if($('l1').value)nv['1']=$('l1').value;if($('l2').value)nv['2']=$('l2').value;if($('l3').value)nv['3']=$('l3').value;
+      await api('PATCH','/bo/classements/'+id,{lots:nv});fermerModale();chargerRegles();
+    });
+    ouvrirModale();
+  }
+  $('btnNouvelleConv').addEventListener('click',function(){
+    $('modale').innerHTML='<h3>Nouvelle conversion</h3>'+
+      '<label>Libellé</label><input id="cLib" placeholder="Pass Jour contre points">'+
+      '<label>Coût en points</label><input id="cCout" type="number" placeholder="500">'+
+      '<label>Type de récompense</label><select id="cType"><option value="pass">Pass</option><option value="badge">Badge</option><option value="credit">Crédit</option></select>'+
+      '<label>Valeur</label><input id="cVal" placeholder="jour, semaine, mois...">'+
+      '<div class="err" id="cErr"></div>'+
+      '<div class="actions"><button style="background:rgba(1,38,98,.08);color:#012662" onclick="fermerModale()">Annuler</button><button style="background:#FBAD01;color:#012662" id="cOk">Créer</button></div>';
+    $('cOk').addEventListener('click',async function(){
+      var r=await api('POST','/bo/conversions',{libelle:$('cLib').value.trim(),cout_points:parseInt($('cCout').value,10),recompense_type:$('cType').value,recompense_valeur:$('cVal').value.trim()});
+      if(r&&r.status===200){fermerModale();chargerRegles();}
+      else{$('cErr').textContent=(r&&r.data.erreur)||'Erreur.';$('cErr').style.display='block';}
+    });
+    ouvrirModale();
+  });
+
+  // ===== PASS & MONÉTISATION =====
+  async function chargerPassMon(){
+    var rt=await api('GET','/bo/pass-types');
+    if(rt&&rt.status===200){
+      var ty=rt.data.types||[];
+      $('videPass').style.display=ty.length?'none':'block';
+      $('tPassTypes').innerHTML=ty.map(function(x){
+        return '<tr><td><span class="puce op">'+x.pays_iso+'</span></td><td><b>'+x.libelle+'</b></td><td>'+x.duree_jours+' j</td><td>'+x.prix+' '+x.devise+'</td>'+
+          '<td><button class="btn pale" data-actpass="'+x.id+'" data-v="'+x.actif+'">'+(x.actif?'Actif':'Inactif')+'</button></td></tr>';
+      }).join('');
+      $('tPassTypes').querySelectorAll('[data-actpass]').forEach(function(b){b.addEventListener('click',async function(){await api('PATCH','/bo/pass-types/'+b.dataset.actpass,{actif:b.dataset.v!=='true'});chargerPassMon();});});
+    }
+    var rv=await api('GET','/bo/ventes');
+    if(rv&&rv.status===200){
+      var v=rv.data.ventes||[];
+      $('videVentes').style.display=v.length?'none':'block';
+      $('tVentes').innerHTML=v.map(function(x){
+        return '<tr><td>'+(x.pseudo||'—')+'<br><span style="color:#aaa;font-size:11px">'+x.telephone+'</span></td><td>'+x.pass+'</td><td><b>'+x.prix+' '+x.devise+'</b></td><td>'+(x.pays_iso||'—')+'</td><td>'+dateFr(x.debut)+'</td></tr>';
+      }).join('');
+    }
+    var rp=await api('GET','/bo/promos');
+    if(rp&&rp.status===200){
+      var pr=rp.data.promos||[];
+      $('videPromos').style.display=pr.length?'none':'block';
+      $('tPromos').innerHTML=pr.map(function(x){
+        var val=x.type==='reduction'?(x.valeur+'%'):(x.valeur+' jours');
+        return '<tr><td><b>'+x.code+'</b><br><span style="color:#aaa;font-size:11px">'+x.libelle+'</span></td><td>'+x.type+'</td><td>'+val+'</td><td>'+x.usages+(x.max_usages?'/'+x.max_usages:'')+'</td>'+
+          '<td><button class="btn pale" data-actpromo="'+x.id+'" data-v="'+x.actif+'">'+(x.actif?'Actif':'Inactif')+'</button></td></tr>';
+      }).join('');
+      $('tPromos').querySelectorAll('[data-actpromo]').forEach(function(b){b.addEventListener('click',async function(){await api('PATCH','/bo/promos/'+b.dataset.actpromo,{actif:b.dataset.v!=='true'});chargerPassMon();});});
+    }
+  }
+  $('btnNouveauPass').addEventListener('click',async function(){
+    var rp=await api('GET','/bo/pays');var pays=(rp&&rp.data.pays)||[];
+    $('modale').innerHTML='<h3>Nouveau type de pass</h3>'+
+      '<label>Pays</label><select id="tpPays">'+pays.map(function(p){return '<option value="'+p.iso+'">'+p.nom+'</option>';}).join('')+'</select>'+
+      '<label>Code</label><input id="tpCode" placeholder="jour, semaine, mois">'+
+      '<label>Libellé</label><input id="tpLib" placeholder="Pass Jour">'+
+      '<label>Durée (jours)</label><input id="tpDur" type="number" placeholder="1">'+
+      '<label>Prix</label><input id="tpPrix" type="number" placeholder="100">'+
+      '<div class="err" id="tpErr"></div>'+
+      '<div class="actions"><button style="background:rgba(1,38,98,.08);color:#012662" onclick="fermerModale()">Annuler</button><button style="background:#FBAD01;color:#012662" id="tpOk">Créer</button></div>';
+    $('tpOk').addEventListener('click',async function(){
+      var r=await api('POST','/bo/pass-types',{pays_iso:$('tpPays').value,code:$('tpCode').value.trim(),libelle:$('tpLib').value.trim(),duree_jours:parseInt($('tpDur').value,10),prix:parseInt($('tpPrix').value,10)});
+      if(r&&r.status===200){fermerModale();chargerPassMon();}else{$('tpErr').textContent=(r&&r.data.erreur)||'Erreur.';$('tpErr').style.display='block';}
+    });
+    ouvrirModale();
+  });
+  $('btnNouvellePromo').addEventListener('click',function(){
+    $('modale').innerHTML='<h3>Nouveau code promo</h3>'+
+      '<label>Code</label><input id="prCode" placeholder="BIENVENUE">'+
+      '<label>Libellé</label><input id="prLib" placeholder="Réduction de bienvenue">'+
+      '<label>Type</label><select id="prType"><option value="reduction">Réduction (%)</option><option value="pass_offert">Pass offert (jours)</option></select>'+
+      '<label>Valeur</label><input id="prVal" type="number" placeholder="20">'+
+      '<div class="err" id="prErr"></div>'+
+      '<div class="actions"><button style="background:rgba(1,38,98,.08);color:#012662" onclick="fermerModale()">Annuler</button><button style="background:#FBAD01;color:#012662" id="prOk">Créer</button></div>';
+    $('prOk').addEventListener('click',async function(){
+      var r=await api('POST','/bo/promos',{code:$('prCode').value.trim(),libelle:$('prLib').value.trim(),type:$('prType').value,valeur:parseInt($('prVal').value,10)});
+      if(r&&r.status===200){fermerModale();chargerPassMon();}else{$('prErr').textContent=(r&&r.data.erreur)||'Erreur.';$('prErr').style.display='block';}
+    });
+    ouvrirModale();
+  });
+
+  // ===== NOTIFICATIONS =====
+  async function chargerNotifs(){
+    var r=await api('GET','/bo/notifications'); if(!r)return;
+    if(r.status!==200){$('tNotifs').innerHTML='';$('videNotifs').textContent=r.data.erreur||'Accès refusé.';$('videNotifs').style.display='block';return;}
+    var ns=r.data.notifications||[];
+    $('videNotifs').style.display=ns.length?'none':'block';
+    var badges={brouillon:'non',programmee:'op',envoyee:'oui',annulee:'non'};
+    $('tNotifs').innerHTML=ns.map(function(x){
+      var cible=x.cible_type+(x.cible_ref?(' → '+x.cible_ref):'');
+      return '<tr><td>'+x.icone+' <b>'+x.titre+'</b><br><span style="color:#aaa;font-size:11px">'+x.message.slice(0,40)+'</span></td>'+
+        '<td style="font-size:12px">'+cible+'</td><td>'+x.audience+(x.pays_iso?(' ('+x.pays_iso+')'):'')+'</td>'+
+        '<td><span class="puce '+(badges[x.statut]||'non')+'">'+x.statut+'</span></td>'+
+        '<td>'+(x.statut!=='envoyee'?'<button class="btn pale" data-envnotif="'+x.id+'">Envoyer</button> ':'')+'<button class="btn pale" data-delnotif="'+x.id+'">✕</button></td></tr>';
+    }).join('');
+    $('tNotifs').querySelectorAll('[data-envnotif]').forEach(function(b){b.addEventListener('click',async function(){await api('POST','/bo/notifications/'+b.dataset.envnotif+'/envoyer');chargerNotifs();});});
+    $('tNotifs').querySelectorAll('[data-delnotif]').forEach(function(b){b.addEventListener('click',async function(){if(confirm('Supprimer ?')){await api('DELETE','/bo/notifications/'+b.dataset.delnotif);chargerNotifs();}});});
+  }
+  $('btnNouvelleNotif').addEventListener('click',function(){
+    $('modale').innerHTML='<h3>Nouvelle notification</h3>'+
+      '<label>Titre</label><input id="nTit" placeholder="Nouveau jeu disponible !">'+
+      '<label>Message</label><input id="nMsg" placeholder="Découvre Akim dès maintenant">'+
+      '<label>Icône</label><input id="nIco" value="🔔" style="width:80px">'+
+      '<label>Pointe vers</label><select id="nCib"><option value="accueil">Accueil</option><option value="jeu">Un jeu</option><option value="competition">Une compétition</option><option value="classement">Le classement</option><option value="pass">Les pass</option><option value="joueur">Un joueur</option></select>'+
+      '<div id="nRefBloc" style="display:none"><label>Référence (id ou slug)</label><input id="nRef" placeholder="akim, hebdo, 12..."></div>'+
+      '<label>Audience</label><select id="nAud"><option value="tous">Tous les joueurs</option><option value="actifs">Abonnés actifs</option><option value="essai">En essai</option><option value="pays">Un pays</option></select>'+
+      '<div id="nPaysBloc" style="display:none"><label>Pays (ISO)</label><input id="nPays" placeholder="CI, TG..."></div>'+
+      '<label>Programmer l\'envoi (optionnel)</label><input id="nQuand" type="datetime-local">'+
+      '<div class="err" id="nErr"></div>'+
+      '<div class="actions"><button style="background:rgba(1,38,98,.08);color:#012662" onclick="fermerModale()">Annuler</button><button style="background:#FBAD01;color:#012662" id="nOk">Créer</button></div>';
+    $('nCib').addEventListener('change',function(){$('nRefBloc').style.display=(this.value!=='accueil'&&this.value!=='classement'&&this.value!=='pass')?'block':'none';});
+    $('nAud').addEventListener('change',function(){$('nPaysBloc').style.display=this.value==='pays'?'block':'none';});
+    $('nOk').addEventListener('click',async function(){
+      var body={titre:$('nTit').value.trim(),message:$('nMsg').value.trim(),icone:$('nIco').value,cible_type:$('nCib').value,audience:$('nAud').value};
+      if($('nRefBloc').style.display!=='none')body.cible_ref=$('nRef').value.trim();
+      if($('nAud').value==='pays')body.pays_iso=$('nPays').value.trim().toUpperCase();
+      if($('nQuand').value)body.envoi_prevu=$('nQuand').value;
+      var r=await api('POST','/bo/notifications',body);
+      if(r&&r.status===200){fermerModale();chargerNotifs();}
+      else{$('nErr').textContent=(r&&r.data.erreur)||'Erreur.';$('nErr').style.display='block';}
+    });
+    ouvrirModale();
+  });
+
+  // ===== COMPÉTITIONS =====
+  async function chargerCompetitions(){
+    var r=await api('GET','/bo/competitions'); if(!r)return;
+    if(r.status!==200){$('tComps').innerHTML='';$('videComps').textContent=r.data.erreur||'Accès refusé.';$('videComps').style.display='block';return;}
+    var comps=r.data.competitions||[];
+    // section validation (les en_attente)
+    var enAttente=comps.filter(function(x){return x.statut==='en_attente_validation';});
+    if(enAttente.length){
+      $('blocValidation').style.display='block';
+      $('tValidation').innerHTML=enAttente.map(function(x){
+        return '<tr><td><b>'+x.titre+'</b></td><td>Opérateur #'+(x.sponsor_operateur_id||'—')+'</td>'+
+          '<td>'+dateFr(x.debut)+' → '+dateFr(x.fin)+'</td>'+
+          '<td><button class="btn" data-valider="'+x.id+'">Valider</button> <button class="btn pale" data-refuser="'+x.id+'">Refuser</button></td></tr>';
+      }).join('');
+      $('tValidation').querySelectorAll('[data-valider]').forEach(function(b){b.addEventListener('click',async function(){await api('POST','/bo/competitions/'+b.dataset.valider+'/valider');chargerCompetitions();});});
+      $('tValidation').querySelectorAll('[data-refuser]').forEach(function(b){b.addEventListener('click',async function(){await api('POST','/bo/competitions/'+b.dataset.refuser+'/refuser',{});chargerCompetitions();});});
+    }else{$('blocValidation').style.display='none';}
+    // toutes
+    $('videComps').style.display=comps.length?'none':'block';
+    var badges={brouillon:'non',en_attente_validation:'op',publiee:'oui',terminee:'non',refusee:'non'};
+    $('tComps').innerHTML=comps.map(function(x){
+      return '<tr><td><b>'+x.titre+'</b></td><td>'+x.type+'</td><td>'+dateFr(x.debut)+' → '+dateFr(x.fin)+'</td>'+
+        '<td><span class="puce '+(badges[x.statut]||'non')+'">'+x.statut.replace(/_/g,' ')+'</span></td>'+
+        '<td><button class="btn pale" data-clst="'+x.id+'">Classement</button></td></tr>';
+    }).join('');
+    $('tComps').querySelectorAll('[data-clst]').forEach(function(b){b.addEventListener('click',function(){classementComp(b.dataset.clst);});});
+  }
+  async function classementComp(id){
+    var r=await api('GET','/bo/competitions/'+id+'/classement'); if(!r||r.status!==200)return;
+    var cl=r.data.classement||[];
+    $('modale').innerHTML='<h3>Classement live</h3>'+
+      (cl.length?'<div style="max-height:400px;overflow-y:auto">'+cl.map(function(x,i){
+        return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f2ece0'+(x.suspect?';background:#fdeceb':'')+'">'+
+          '<span style="width:24px;font-weight:700;color:#012662">'+(i+1)+'</span>'+
+          '<span style="flex:1">'+x.pseudo+(x.suspect?' <span style="color:#c0392b;font-size:10px">⚠ SUSPECT</span>':'')+'</span>'+
+          '<span style="color:#c98f05;font-weight:700">'+x.meilleur_score+'</span>'+
+          '<button class="btn pale" data-susp="'+x.id+'" data-v="'+x.suspect+'" style="font-size:10px;padding:3px 7px">'+(x.suspect?'Blanchir':'Signaler')+'</button></div>';
+      }).join('')+'</div>':'<div style="color:#7a8194">Aucun participant.</div>')+
+      '<div class="actions"><button style="background:#012662;color:#fff" onclick="fermerModale()">Fermer</button></div>';
+    $('modale').querySelectorAll('[data-susp]').forEach(function(b){
+      b.addEventListener('click',async function(){
+        await api('POST','/bo/competitions/'+id+'/participants/'+b.dataset.susp+'/suspect',{suspect:b.dataset.v!=='true',motif:'Signalé manuellement'});
+        classementComp(id);
+      });
+    });
+    ouvrirModale();
+  }
+  $('btnNouvelleComp').addEventListener('click',function(){
+    $('modale').innerHTML='<h3>Nouvelle compétition</h3>'+
+      '<label>Titre</label><input id="cTit" placeholder="Grand Tournoi Ludikafrik">'+
+      '<label>Type</label><select id="cTyp"><option value="classement">Classement</option><option value="elimination">Élimination</option><option value="defi">Défi entre amis</option></select>'+
+      '<label>Périodicité</label><select id="cPer"><option value="ponctuelle">Ponctuelle</option><option value="journaliere">Journalière</option><option value="hebdo">Hebdomadaire</option><option value="saisonniere">Saisonnière</option></select>'+
+      '<label>Début</label><input id="cDeb" type="datetime-local">'+
+      '<label>Fin</label><input id="cFin" type="datetime-local">'+
+      '<div class="err" id="cErr2"></div>'+
+      '<div class="actions"><button style="background:rgba(1,38,98,.08);color:#012662" onclick="fermerModale()">Annuler</button><button style="background:#FBAD01;color:#012662" id="cOk2">Créer</button></div>';
+    $('cOk2').addEventListener('click',async function(){
+      var r=await api('POST','/bo/competitions',{titre:$('cTit').value.trim(),type:$('cTyp').value,periodicite:$('cPer').value,debut:$('cDeb').value,fin:$('cFin').value});
+      if(r&&r.status===200){fermerModale();chargerCompetitions();}
+      else{$('cErr2').textContent=(r&&r.data.erreur)||'Erreur.';$('cErr2').style.display='block';}
+    });
+    ouvrirModale();
+  });
+
+  // ===== FINANCES =====
+  async function chargerFinances(){
+    var rr=await api('GET','/bo/finances/resume');
+    if(rr&&rr.status===200){
+      var s=rr.data;
+      $('finResume').innerHTML=
+        carteStat('Collecté', (s.total_collecte||0).toLocaleString('fr-FR')+' F')+
+        carteStat('Transactions', s.nb_transactions||0)+
+        carteStat('Déjà reversé', (s.deja_reverse||0).toLocaleString('fr-FR')+' F');
+    }else if(rr){$('finResume').innerHTML='<div style="color:#c0392b;font-size:13px">'+(rr.data.erreur||'Accès refusé')+'</div>';}
+    // réconciliation
+    var rc=await api('GET','/bo/finances/reconciliation');
+    if(rc&&rc.status===200){
+      var rel=rc.data.releves||[];
+      $('videReconc').style.display=rel.length?'none':'block';
+      $('tReconc').innerHTML=rel.map(function(x){
+        var ecart=x.ecart||0;
+        return '<tr><td>#'+x.operateur_id+'</td><td>'+x.periode_debut+' → '+x.periode_fin+'</td>'+
+          '<td>'+(x.total_collecte||0).toLocaleString('fr-FR')+' F</td>'+
+          '<td>'+(x.du_a_reverser||0).toLocaleString('fr-FR')+' F</td>'+
+          '<td>'+(x.montant_recu||0).toLocaleString('fr-FR')+' F</td>'+
+          '<td style="color:'+(ecart>0?'#c0392b':'#1a8a44')+'">'+ecart.toLocaleString('fr-FR')+' F</td>'+
+          '<td><span class="puce '+(x.statut==='valide'?'oui':'op')+'">'+x.statut+'</span></td></tr>';
+      }).join('');
+    }
+    // transactions
+    var st=$('finStatut')?$('finStatut').value:'';
+    var rt=await api('GET','/bo/finances/transactions'+(st?('?statut='+st):''));
+    if(rt&&rt.status===200){
+      var tx=rt.data.transactions||[];
+      $('videTx').style.display=tx.length?'none':'block';
+      $('tTransactions').innerHTML=tx.map(function(x){
+        var badge={reussi:'oui',en_attente:'op',echec:'non',rembourse:'non'}[x.statut]||'non';
+        return '<tr><td>'+dateFr(x.cree_le)+'</td><td>'+(x.pseudo||'—')+'</td>'+
+          '<td>'+x.montant.toLocaleString('fr-FR')+' '+x.devise+'</td><td>'+(x.pays_iso||'—')+'</td>'+
+          '<td>'+(x.moyen||x.operateur||'—')+'</td><td><span class="puce '+badge+'">'+x.statut+'</span></td></tr>';
+      }).join('');
+    }
+  }
+  function carteStat(l,v){return '<div style="background:#fff;border:1px solid #eae3d4;border-radius:14px;padding:16px 18px"><div style="font-size:12px;color:#7a8194;margin-bottom:6px">'+l+'</div><div style="font-size:22px;font-weight:800;color:#012662">'+v+'</div></div>';}
+  if($('finStatut'))$('finStatut').addEventListener('change',chargerFinances);
+  var bE=$('btnExportFin');
+  if(bE)bE.addEventListener('click',function(){window.open('/api/bo/finances/export','_blank');});
+  var bR=$('btnReconc');
+  if(bR)bR.addEventListener('click',async function(){
+    var rp=await api('GET','/bo/pays');
+    // récupérer les opérateurs actifs pour la sélection
+    $('modale').innerHTML='<h3>Générer un relevé de réconciliation</h3>'+
+      '<label>ID opérateur</label><input id="rOp" type="number" placeholder="2">'+
+      '<label>Début de période</label><input id="rDeb" type="date">'+
+      '<label>Fin de période</label><input id="rFin" type="date">'+
+      '<div class="err" id="rErr"></div>'+
+      '<div class="actions"><button style="background:rgba(1,38,98,.08);color:#012662" onclick="fermerModale()">Annuler</button><button style="background:#FBAD01;color:#012662" id="rOk">Générer</button></div>';
+    $('rOk').addEventListener('click',async function(){
+      var r=await api('POST','/bo/finances/reconciliation',{operateur_id:parseInt($('rOp').value,10),debut:$('rDeb').value,fin:$('rFin').value});
+      if(r&&r.status===200){fermerModale();chargerFinances();}
+      else{$('rErr').textContent=(r&&r.data.erreur)||'Erreur.';$('rErr').style.display='block';}
+    });
+    ouvrirModale();
+  });
+
+  function charger(vue){
+    if(vue==='finances')chargerFinances();
+    if(vue==='competitions')chargerCompetitions();
+    if(vue==='notifications')chargerNotifs();
+    if(vue==='acces')chargerAcces();
+    if(vue==='pays')chargerPays();
+    if(vue==='joueurs')chargerJoueurs();
+    if(vue==='jeux')chargerJeux();
+    if(vue==='regles')chargerRegles();
+    if(vue==='pass')chargerPassMon();
+  }
+
+  // init : profil admin depuis le jeton (décodage simple de la charge)
+  try{
+    var charge=JSON.parse(atob(JETON.split('.')[1]));
+    var nom=charge.nom||'Admin';
+    $('nomAdmin').textContent=nom;
+    $('av').textContent=nom.slice(0,2).toUpperCase();
+    $('roleAdmin').textContent=charge.role||'';
+  }catch(e){}
+
+  charger('acces');
+</script>
+</body>
+</html>

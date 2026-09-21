@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Billard Faso</title>
+<style>
+  :root{--vert:#0E7A3C;--rouge:#E32219;--or:#F5C21B;--nuit:#12130F;--craie:#FAF7EF;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:var(--nuit);font-family:"Arial Black","Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;}
+  header{width:100%;max-width:430px;padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-size:20px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial,sans-serif;font-weight:400;font-size:9px;letter-spacing:3px;color:#8b8f84;margin-top:3px;}
+  .scores{text-align:right;line-height:1.25;}
+  .scores .val{font-size:20px;color:var(--or);}
+  .scores .lbl{font-family:Arial,sans-serif;font-size:9px;letter-spacing:2px;color:#8b8f84;}
+  #msg{height:26px;font-size:14px;letter-spacing:.5px;text-align:center;color:var(--or);}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;justify-content:center;padding:0 12px 4px;}
+  canvas{display:block;border-radius:14px;}
+  #fin{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,19,15,.88);text-align:center;padding:24px;border-radius:14px;}
+  #fin h2{font-size:30px;color:var(--or);margin-bottom:6px;}
+  #fin p{font-family:Arial,sans-serif;font-size:14px;color:#c9ccc0;margin-bottom:20px;line-height:1.5;}
+  #fin button{font-family:inherit;font-size:16px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:14px 34px;}
+  #fin button:active{transform:scale(.96);}
+  footer{width:100%;max-width:430px;padding:8px 16px 14px;text-align:center;
+    font-family:Arial,sans-serif;font-size:11px;color:#6c7064;letter-spacing:.5px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">BILLARD <span>FASO</span><small>ANGLE · FORCE · EMPOCHE</small></div>
+  <div style="display:flex;align-items:center;gap:0"><button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:32px;height:32px;font-size:14px;margin-right:8px">🔊</button>
+<div class="scores"><div class="val" id="score">0</div>
+  <div class="lbl">COUPS <span id="coups">5</span> · NIVEAU <span id="niv">1</span></div></div>
+</div>
+</header>
+<div id="msg">Tire la bille blanche en arrière et lâche 🎱</div>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="fin"><h2 id="finTitre"></h2><p id="finTexte"></p><button id="rejouer">REJOUER</button></div>
+</div>
+<footer>Démo VAS — classement hebdo &amp; lots airtime à venir</footer>
+<script>
+(function(){
+"use strict";
+// ===== Kit sonore Faso Games (synthétisé, 0 Ko d'assets, silencieux par défaut respecté) =====
+var SFX=(function(){
+  var ctx,muet=false;
+  try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+  function ac(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();return ctx;}
+  function tone(freq,dur,type,vol,glide){
+    if(muet)return;
+    try{
+      var c=ac();var o=c.createOscillator();var g=c.createGain();
+      o.type=type||'sine';o.frequency.value=freq;
+      if(glide)o.frequency.linearRampToValueAtTime(glide,c.currentTime+dur);
+      g.gain.value=vol||0.15;
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+      o.connect(g);g.connect(c.destination);
+      o.start();o.stop(c.currentTime+dur);
+    }catch(e){}
+  }
+  return{
+    tap:function(){tone(440,0.05,'square',0.08);},
+    bon:function(){tone(523,0.09,'sine',0.14);setTimeout(function(){tone(784,0.12,'sine',0.14);},70);},
+    mauvais:function(){tone(160,0.22,'sawtooth',0.12,90);},
+    victoire:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.15);},i*90);});},
+    defaite:function(){[392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.22,'sine',0.12);},i*120);});},
+    piece:function(){tone(988,0.08,'triangle',0.12,1400);},
+    tick:function(){tone(300,0.03,'square',0.05);},
+    estMuet:function(){return muet;},
+    toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+  };
+})();
+// Bouton mute (à placer dans le header de chaque jeu)
+function initBoutonSon(id){
+  var b=document.getElementById(id);
+  if(!b)return;
+  function maj(){b.textContent=SFX.estMuet()?'🔇':'🔊';}
+  maj();
+  b.addEventListener('click',function(){SFX.toggle();maj();});
+}
+// Confetti simple (petites particules colorées, pour les écrans de victoire)
+function confetti(canvas,ctx,cx,cy){
+  var parts=[];
+  var couleurs=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<24;i++){
+    var a=Math.random()*Math.PI*2,v=2+Math.random()*3;
+    parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,g:0.12,vie:1,col:couleurs[i%couleurs.length],taille:3+Math.random()*3});
+  }
+  return parts;
+}
+function drawConfetti(ctx,parts,dt){
+  for(var i=parts.length-1;i>=0;i--){
+    var p=parts[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vie-=0.018*dt;
+    if(p.vie<=0){parts.splice(i,1);continue;}
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.taille/2,p.y-p.taille/2,p.taille,p.taille);
+    ctx.globalAlpha=1;
+  }
+}
+initBoutonSon("btnSon");
+
+const cvs=document.getElementById('c'),ctx=cvs.getContext('2d');
+const scoreEl=document.getElementById('score'),coupsEl=document.getElementById('coups'),nivEl=document.getElementById('niv');
+const msg=document.getElementById('msg'),fin=document.getElementById('fin');
+const finTitre=document.getElementById('finTitre'),finTexte=document.getElementById('finTexte');
+let W=0,H=0,DPR=1;
+let confettiParts=[];
+const RAIL=16, R=11, PR=18;
+let table={},pockets=[];
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  const r=cvs.parentElement.getBoundingClientRect();
+  W=r.width-24;H=r.height-8;
+  cvs.style.width=W+'px';cvs.style.height=H+'px';
+  cvs.width=W*DPR;cvs.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  table={x:RAIL,y:RAIL,w:W-2*RAIL,h:H-2*RAIL};
+  pockets=[
+    {x:table.x,y:table.y},{x:table.x+table.w,y:table.y},
+    {x:table.x,y:table.y+table.h},{x:table.x+table.w,y:table.y+table.h},
+    {x:table.x,y:table.y+table.h/2},{x:table.x+table.w,y:table.y+table.h/2},
+  ];
+}
+window.addEventListener('resize',resize);
+
+let blanche, cibles, score=0, coups=5, niveau=1, over=false, potCeCoup=false, aim=null;
+
+function reset(full){
+  if(full){score=0;coups=5;niveau=1;
+    scoreEl.textContent='0';coupsEl.textContent='5';nivEl.textContent='1';}
+  blanche={x:W/2,y:H*0.78,vx:0,vy:0,in:true};
+  cibles=[];
+  const n=Math.min(1+Math.floor((niveau-1)/3),3); // +1 bille tous les 3 niveaux, max 3
+  for(let i=0;i<n;i++){
+    let ok=false,x,y,essais=0;
+    while(!ok&&essais<80){
+      essais++;
+      x=table.x+40+Math.random()*(table.w-80);
+      y=table.y+40+Math.random()*(table.h*0.45);
+      ok=pockets.every(p=>Math.hypot(x-p.x,y-p.y)>PR+R+16)
+        &&cibles.every(c=>Math.hypot(x-c.x,y-c.y)>R*3);
+    }
+    cibles.push({x,y,vx:0,vy:0,in:true,num:i+1});
+  }
+  over=false;potCeCoup=false;aim=null;
+  if(full)msg.textContent="Tire la bille blanche en arrière et lâche 🎱";
+}
+function tousArretes(){
+  const balles=[blanche,...cibles].filter(b=>b.in);
+  return balles.every(b=>Math.hypot(b.vx,b.vy)<0.05);
+}
+function tirer(dx,dy){
+  if(over||!tousArretes())return;
+  const len=Math.hypot(dx,dy);
+  if(len<12)return;
+  const p=Math.min(14,len*0.11);
+  blanche.vx=-dx/len*p;blanche.vy=-dy/len*p;
+  coups--;coupsEl.textContent=coups;
+  potCeCoup=false;
+  msg.textContent="";
+}
+function step(dt){
+  const balles=[blanche,...cibles].filter(b=>b.in);
+  for(const b of balles){
+    b.x+=b.vx*dt;b.y+=b.vy*dt;
+    b.vx*=Math.pow(0.985,dt);b.vy*=Math.pow(0.985,dt);
+    if(Math.hypot(b.vx,b.vy)<0.05){b.vx=0;b.vy=0;}
+    // poches
+    for(const p of pockets){
+      if(Math.hypot(b.x-p.x,b.y-p.y)<PR-3){
+        b.in=false;
+        if(b===blanche){
+          msg.textContent="😱 Blanche empochée !";
+          SFX.mauvais();
+        }else{
+          potCeCoup=true;
+          score+=100+coups*10;coups+=2;
+          scoreEl.textContent=score;coupsEl.textContent=coups;
+          msg.textContent="🎱 Empochée ! +"+(100+(coups-2)*10)+" et +2 coups";
+          SFX.piece();
+        }
+      }
+    }
+    if(!b.in)continue;
+    // bandes
+    if(b.x-R<table.x){b.x=table.x+R;b.vx=Math.abs(b.vx)*0.9;}
+    if(b.x+R>table.x+table.w){b.x=table.x+table.w-R;b.vx=-Math.abs(b.vx)*0.9;}
+    if(b.y-R<table.y){b.y=table.y+R;b.vy=Math.abs(b.vy)*0.9;}
+    if(b.y+R>table.y+table.h){b.y=table.y+table.h-R;b.vy=-Math.abs(b.vy)*0.9;}
+  }
+  // collisions bille-bille (masses égales)
+  const act=[blanche,...cibles].filter(b=>b.in);
+  for(let i=0;i<act.length;i++)for(let j=i+1;j<act.length;j++){
+    const a=act[i],b=act[j];
+    const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);
+    if(d<2*R&&d>0){
+      const nx=dx/d,ny=dy/d;
+      const chev=(2*R-d)/2;
+      a.x-=nx*chev;a.y-=ny*chev;b.x+=nx*chev;b.y+=ny*chev;
+      const va=a.vx*nx+a.vy*ny, vb=b.vx*nx+b.vy*ny;
+      a.vx+=(vb-va)*nx;a.vy+=(vb-va)*ny;
+      b.vx+=(va-vb)*nx;b.vy+=(va-vb)*ny;
+    }
+  }
+  // fin de coup
+  if(tousArretes()&&!over){
+    if(!blanche.in){
+      blanche={x:W/2,y:H*0.78,vx:0,vy:0,in:true};
+    }
+    if(cibles.every(c=>!c.in)){
+      niveau++;nivEl.textContent=niveau;
+      msg.textContent="🏆 Niveau "+niveau+" !";
+      SFX.bon();
+      reset(false);
+    }else if(coups<=0){
+      over=true;
+      finTitre.textContent=score+" pts";
+      finTexte.textContent=niveau>=6?"Un vrai pro de la queue ! Le classement hebdo t'attend."
+        :niveau>=3?"Beau parcours ! Dose ta force près des poches."
+        :"Plus de coups... Vise les poches de coin, elles pardonnent plus !";
+      if(niveau>=6){SFX.victoire();confettiParts=confetti(cvs,ctx,W/2,H*0.4);}else{SFX.defaite();}
+      if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Billard',score:Math.round(score*0.6),victoire:niveau>=6},'*');}catch(e){}}
+      fin.style.display='flex';
+    }
+  }
+}
+document.getElementById('rejouer').addEventListener('click',()=>{fin.style.display='none';confettiParts=[];reset(true);});
+function draw(){
+  // cadre bois
+  ctx.fillStyle='#6e4525';
+  ctx.beginPath();ctx.roundRect(0,0,W,H,14);ctx.fill();
+  // tapis
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#128a44');g.addColorStop(1,'#0A5C2D');
+  ctx.fillStyle=g;
+  ctx.fillRect(table.x,table.y,table.w,table.h);
+  // repères
+  ctx.strokeStyle='rgba(250,247,239,.18)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(table.x,H*0.7);ctx.lineTo(table.x+table.w,H*0.7);ctx.stroke();
+  // poches
+  for(const p of pockets){
+    ctx.fillStyle='#12130F';
+    ctx.beginPath();ctx.arc(p.x,p.y,PR,0,7);ctx.fill();
+    ctx.strokeStyle='#F5C21B';ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(p.x,p.y,PR,0,7);ctx.stroke();
+  }
+  // ligne de visée
+  if(aim&&tousArretes()&&!over){
+    const dx=aim.sx-aim.x, dy=aim.sy-aim.y;
+    const len=Math.hypot(dx,dy);
+    if(len>12){
+      const nx=dx/len,ny=dy/len;
+      ctx.setLineDash([6,7]);
+      ctx.strokeStyle='rgba(245,194,27,.85)';ctx.lineWidth=2.5;
+      ctx.beginPath();
+      ctx.moveTo(blanche.x,blanche.y);
+      ctx.lineTo(blanche.x+nx*160,blanche.y+ny*160);
+      ctx.stroke();ctx.setLineDash([]);
+      // jauge de force
+      const p=Math.min(1,len/128);
+      ctx.fillStyle='rgba(18,19,15,.55)';
+      ctx.beginPath();ctx.roundRect(W/2-52,H-26,104,10,5);ctx.fill();
+      ctx.fillStyle=p>0.75?'#E32219':'#F5C21B';
+      ctx.beginPath();ctx.roundRect(W/2-50,H-24,100*p,6,3);ctx.fill();
+      // queue
+      ctx.strokeStyle='#8a5a33';ctx.lineWidth=5;ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(blanche.x-nx*(R+6),blanche.y-ny*(R+6));
+      ctx.lineTo(blanche.x-nx*(R+56+p*30),blanche.y-ny*(R+56+p*30));
+      ctx.stroke();
+    }
+  }
+  // billes
+  for(const c of cibles)if(c.in)drawBille(c.x,c.y,'#E32219',c.num);
+  if(blanche.in)drawBille(blanche.x,blanche.y,'#FAF7EF',null);
+}
+function drawBille(x,y,col,num){
+  ctx.fillStyle='rgba(0,0,0,.3)';
+  ctx.beginPath();ctx.arc(x+2,y+3,R,0,7);ctx.fill();
+  ctx.fillStyle=col;
+  ctx.beginPath();ctx.arc(x,y,R,0,7);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.5)';
+  ctx.beginPath();ctx.arc(x-3.5,y-3.5,R*0.3,0,7);ctx.fill();
+  if(num!==null){
+    ctx.fillStyle='#FAF7EF';
+    ctx.beginPath();ctx.arc(x,y,R*0.5,0,7);ctx.fill();
+    ctx.fillStyle='#12130F';
+    ctx.font='bold 9px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(num,x,y+0.5);
+  }
+}
+// ---- Entrées : élastique ----
+function pos(e){
+  const r=cvs.getBoundingClientRect();
+  const p=e.touches?e.touches[0]:(e.changedTouches?e.changedTouches[0]:e);
+  return {x:p.clientX-r.left,y:p.clientY-r.top};
+}
+cvs.addEventListener('touchstart',e=>{
+  const p=pos(e);aim={sx:p.x,sy:p.y,x:p.x,y:p.y};e.preventDefault();
+},{passive:false});
+cvs.addEventListener('touchmove',e=>{
+  if(aim){const p=pos(e);aim.x=p.x;aim.y=p.y;}e.preventDefault();
+},{passive:false});
+cvs.addEventListener('touchend',e=>{
+  if(aim){tirer(aim.x-aim.sx,aim.y-aim.sy);aim=null;}e.preventDefault();
+},{passive:false});
+cvs.addEventListener('mousedown',e=>{const p=pos(e);aim={sx:p.x,sy:p.y,x:p.x,y:p.y};});
+window.addEventListener('mousemove',e=>{if(aim){const p=pos(e);aim.x=p.x;aim.y=p.y;}});
+window.addEventListener('mouseup',e=>{if(aim){tirer(aim.x-aim.sx,aim.y-aim.sy);aim=null;}});
+window.__bill={state:()=>({score,coups,niveau,over,arret:tousArretes(),
+  blanche:{x:blanche.x,y:blanche.y},cibles:cibles.filter(c=>c.in).map(c=>({x:c.x,y:c.y})),
+  confettiN:confettiParts.length,muet:SFX.estMuet()}),
+  tir:(dx,dy)=>tirer(dx,dy),
+  forcerVictoire:()=>{niveau=6;coups=0;cibles.forEach(c=>c.in=false);
+    over=true;finTitre.textContent=score+" pts";
+    SFX.victoire();confettiParts=confetti(cvs,ctx,W/2,H*0.4);fin.style.display='flex';}};
+// ---- Boucle ----
+let last=0;
+function loop(now){
+  const dt=Math.min(2.5,(now-last)/16.7);last=now;
+  step(dt);draw();
+  if(confettiParts.length)drawConfetti(ctx,confettiParts,dt);
+  requestAnimationFrame(loop);
+}
+resize();reset(true);
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Vocabulaire Faso</title>
+<style>
+  :root{--vert:#0E7A3C;--rouge:#E32219;--or:#F5C21B;--nuit:#12130F;--craie:#FAF7EF;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:var(--nuit);font-family:"Arial Black","Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;}
+  header{width:100%;max-width:430px;padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-size:19px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial,sans-serif;font-weight:400;font-size:9px;letter-spacing:3px;color:#8b8f84;margin-top:3px;}
+  .scores{text-align:right;line-height:1.25;}
+  .scores .val{font-size:20px;color:var(--or);}
+  .scores .lbl{font-family:Arial,sans-serif;font-size:9px;letter-spacing:2px;color:#8b8f84;}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;flex-direction:column;padding:6px 16px 10px;}
+  #barreTemps{height:6px;background:#1d1f19;border-radius:99px;overflow:hidden;margin-bottom:14px;}
+  #barreTemps>div{height:100%;background:var(--or);width:100%;transition:width .1s linear;}
+  #consigne{text-align:center;font-family:Arial;font-weight:normal;font-size:15px;color:#c9ccc0;margin-bottom:2px;}
+  #consigne b{font-family:"Arial Black";}
+  .syn b{color:var(--vert);} .ant b{color:var(--rouge);}
+  #mot{text-align:center;font-size:38px;color:var(--or);margin:10px 0 24px;}
+  #serie{text-align:center;height:22px;font-size:15px;color:var(--or);margin-bottom:14px;}
+  #choix{display:flex;flex-direction:column;gap:11px;}
+  .rep{background:#1d1f19;border:1.5px solid #2a2c24;color:var(--craie);border-radius:12px;
+    padding:15px 18px;font-family:Arial;font-size:16px;text-align:left;transition:.12s;font-weight:normal;}
+  .rep:active{transform:scale(.98);}
+  .rep.bon{background:var(--vert);border-color:var(--vert);color:var(--craie);}
+  .rep.mauvais{background:var(--rouge);border-color:var(--rouge);color:var(--craie);}
+  #fin{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,19,15,.94);text-align:center;padding:22px;}
+  #fin h2{font-size:44px;color:var(--or);margin-bottom:4px;}
+  #fin .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;width:100%;max-width:340px;margin:10px 0 20px;}
+  #fin .stat{background:#1d1f19;border-radius:10px;padding:12px 6px;}
+  #fin .stat .v{font-size:22px;font-weight:bold;color:var(--or);}
+  #fin .stat .l{font-size:10px;color:#8b8f84;letter-spacing:1px;margin-top:2px;}
+  #fin p{font-family:Arial,sans-serif;font-size:14px;color:#c9ccc0;margin-bottom:22px;line-height:1.5;max-width:340px;}
+  #fin button{font-family:inherit;font-size:16px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:14px 40px;}
+  footer{width:100%;max-width:430px;padding:6px 16px 12px;text-align:center;
+    font-family:Arial,sans-serif;font-size:11px;color:#6c7064;letter-spacing:.5px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">VOCABULAIRE <span>FASO</span><small>SYNONYMES · ANTONYMES</small></div>
+  <div style="display:flex;align-items:center;gap:0"><button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:32px;height:32px;font-size:14px;margin-right:8px">🔊</button>
+<div class="scores"><div class="val" id="score">0</div>
+  <div class="lbl">SÉRIE <span id="serieN">0</span> 🔥</div></div>
+</div>
+</header>
+<div id="wrap">
+  <div id="barreTemps"><div id="jauge"></div></div>
+  <div id="consigne" class="syn">Trouve le <b>SYNONYME</b> de</div>
+  <div id="mot">—</div>
+  <div id="serie">Les séries multiplient tes points</div>
+  <div id="choix"></div>
+  <div id="fin">
+    <h2 id="finScore"></h2>
+    <div class="stats">
+      <div class="stat"><div class="v" id="fBonnes">0</div><div class="l">BONNES</div></div>
+      <div class="stat"><div class="v" id="fPrecision">0%</div><div class="l">PRÉCISION</div></div>
+      <div class="stat"><div class="v" id="fSerie">0</div><div class="l">MEILLEURE</div></div>
+    </div>
+    <p id="finTexte"></p>
+    <button id="rejouer">REJOUER</button>
+  </div>
+</div>
+<footer>Démo VAS — classement hebdo &amp; lots airtime à venir</footer>
+<script>
+(function(){
+"use strict";
+// ===== Kit sonore Faso Games (synthétisé, 0 Ko d'assets, silencieux par défaut respecté) =====
+var SFX=(function(){
+  var ctx,muet=false;
+  try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+  function ac(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();return ctx;}
+  function tone(freq,dur,type,vol,glide){
+    if(muet)return;
+    try{
+      var c=ac();var o=c.createOscillator();var g=c.createGain();
+      o.type=type||'sine';o.frequency.value=freq;
+      if(glide)o.frequency.linearRampToValueAtTime(glide,c.currentTime+dur);
+      g.gain.value=vol||0.15;
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+      o.connect(g);g.connect(c.destination);
+      o.start();o.stop(c.currentTime+dur);
+    }catch(e){}
+  }
+  return{
+    tap:function(){tone(440,0.05,'square',0.08);},
+    bon:function(){tone(523,0.09,'sine',0.14);setTimeout(function(){tone(784,0.12,'sine',0.14);},70);},
+    mauvais:function(){tone(160,0.22,'sawtooth',0.12,90);},
+    victoire:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.15);},i*90);});},
+    defaite:function(){[392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.22,'sine',0.12);},i*120);});},
+    piece:function(){tone(988,0.08,'triangle',0.12,1400);},
+    tick:function(){tone(300,0.03,'square',0.05);},
+    estMuet:function(){return muet;},
+    toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+  };
+})();
+// Bouton mute (à placer dans le header de chaque jeu)
+function initBoutonSon(id){
+  var b=document.getElementById(id);
+  if(!b)return;
+  function maj(){b.textContent=SFX.estMuet()?'🔇':'🔊';}
+  maj();
+  b.addEventListener('click',function(){SFX.toggle();maj();});
+}
+// Confetti simple (petites particules colorées, pour les écrans de victoire)
+function confetti(canvas,ctx,cx,cy){
+  var parts=[];
+  var couleurs=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<24;i++){
+    var a=Math.random()*Math.PI*2,v=2+Math.random()*3;
+    parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,g:0.12,vie:1,col:couleurs[i%couleurs.length],taille:3+Math.random()*3});
+  }
+  return parts;
+}
+function drawConfetti(ctx,parts,dt){
+  for(var i=parts.length-1;i>=0;i--){
+    var p=parts[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vie-=0.018*dt;
+    if(p.vie<=0){parts.splice(i,1);continue;}
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.taille/2,p.y-p.taille/2,p.taille,p.taille);
+    ctx.globalAlpha=1;
+  }
+}
+
+
+function domConfetti(){
+  const colors=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(let i=0;i<28;i++){
+    const el=document.createElement('div');
+    const size=4+Math.random()*4;
+    el.style.cssText='position:fixed;z-index:60;pointer-events:none;border-radius:2px;';
+    el.style.width=size+'px';el.style.height=size+'px';
+    el.style.background=colors[i%colors.length];
+    el.style.left=(window.innerWidth/2+(Math.random()-0.5)*60)+'px';
+    el.style.top='38%';
+    document.body.appendChild(el);
+    const dx=(Math.random()-0.5)*260, dy=200+Math.random()*220, rot=Math.random()*720-360;
+    const dur=900+Math.random()*500;
+    el.animate([
+      {transform:'translate(0,0) rotate(0deg)',opacity:1},
+      {transform:'translate('+dx+'px,'+dy+'px) rotate('+rot+'deg)',opacity:0}
+    ],{duration:dur,easing:'cubic-bezier(.25,.46,.45,.94)'});
+    setTimeout(()=>el.remove(),dur+50);
+  }
+}
+initBoutonSon("btnSon");
+
+// Banque : [mot, synonyme, antonyme, distracteurs...]
+const BANQUE=[
+  {m:'RAPIDE',   s:['véloce','prompt','vif'],       a:['lent','lambin','tardif']},
+  {m:'HEUREUX',  s:['joyeux','content','ravi'],     a:['triste','malheureux','morose']},
+  {m:'GRAND',    s:['immense','vaste','énorme'],    a:['petit','minuscule','court']},
+  {m:'CALME',    s:['paisible','serein','tranquille'],a:['agité','nerveux','excité']},
+  {m:'RICHE',    s:['fortuné','aisé','opulent'],    a:['pauvre','démuni','modeste']},
+  {m:'FORT',     s:['puissant','robuste','solide'], a:['faible','fragile','débile']},
+  {m:'BEAU',     s:['joli','magnifique','superbe'], a:['laid','affreux','moche']},
+  {m:'FACILE',   s:['aisé','simple','commode'],     a:['difficile','ardu','complexe']},
+  {m:'FROID',    s:['glacial','frais','glacé'],     a:['chaud','brûlant','tiède']},
+  {m:'COURAGEUX',s:['brave','vaillant','audacieux'],a:['peureux','lâche','craintif']},
+  {m:'AIMER',    s:['adorer','chérir','apprécier'], a:['détester','haïr','abhorrer']},
+  {m:'DÉBUT',    s:['commencement','origine','départ'],a:['fin','clôture','achèvement']},
+  {m:'JEUNE',    s:['adolescent','juvénile','récent'],a:['vieux','âgé','ancien']},
+  {m:'PROPRE',   s:['net','impeccable','clair'],    a:['sale','crasseux','souillé']},
+  {m:'CLAIR',    s:['limpide','lumineux','évident'],a:['sombre','obscur','trouble']},
+  {m:'GAI',      s:['joyeux','enjoué','allègre'],   a:['triste','morne','sombre']},
+  {m:'CHER',     s:['coûteux','onéreux','précieux'],a:['bon marché','modique','gratuit']},
+  {m:'LOIN',     s:['éloigné','distant','au-delà'], a:['proche','près','voisin']},
+  {m:'PARLER',   s:['discuter','converser','causer'],a:['se taire','taire','écouter']},
+  {m:'MONTER',   s:['grimper','s\'élever','ascendre'],a:['descendre','baisser','tomber']},
+  {m:'DONNER',   s:['offrir','céder','remettre'],   a:['prendre','recevoir','confisquer']},
+  {m:'RÉUSSIR',  s:['aboutir','triompher','vaincre'],a:['échouer','rater','perdre']},
+  {m:'AUGMENTER',s:['accroître','majorer','hausser'],a:['diminuer','baisser','réduire']},
+  {m:'HONNÊTE',  s:['franc','loyal','intègre'],     a:['malhonnête','fourbe','menteur']},
+  {m:'GÉNÉREUX', s:['prodigue','magnanime','large'],a:['avare','radin','pingre']},
+  {m:'AMI',      s:['camarade','copain','pote'],    a:['ennemi','adversaire','rival']},
+  {m:'CONSTRUIRE',s:['bâtir','édifier','ériger'],   a:['détruire','démolir','abattre']},
+  {m:'ACCEPTER', s:['approuver','consentir','admettre'],a:['refuser','rejeter','décliner']},
+  {m:'INTELLIGENT',s:['brillant','malin','futé'],   a:['sot','bête','stupide']},
+  {m:'VRAI',     s:['authentique','réel','sincère'],a:['faux','erroné','mensonger']},
+];
+
+const qEl=document.getElementById('consigne'),motEl=document.getElementById('mot');
+const choixEl=document.getElementById('choix'),serieEl=document.getElementById('serie');
+const scoreEl=document.getElementById('score'),serieN=document.getElementById('serieN');
+const jauge=document.getElementById('jauge');
+const fin=document.getElementById('fin'),finScore=document.getElementById('finScore');
+const finTexte=document.getElementById('finTexte');
+const fBonnes=document.getElementById('fBonnes'),fPrecision=document.getElementById('fPrecision'),fSerie=document.getElementById('fSerie');
+
+const DUREE=40;
+let score,serie,meilleureSerie,bonnes,total,tempsRestant,timer,repondu,bonneRep,ordreBanque=[];
+
+function distracteur(exclu){
+  // prendre un mot random depuis synonymes+antonymes d'autres entrées
+  const autres=BANQUE.filter(x=>!exclu.includes(x.m));
+  const src=autres[Math.floor(Math.random()*autres.length)];
+  const pool=src.s.concat(src.a);
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+function nouvelle(){
+  if(!ordreBanque.length)ordreBanque=BANQUE.map((_,i)=>i).sort(()=>Math.random()-0.5);
+  const idx=ordreBanque.shift();
+  const entree=BANQUE[idx];
+  const modeSyn=Math.random()<0.5;
+  bonneRep=(modeSyn?entree.s:entree.a)[Math.floor(Math.random()*(modeSyn?entree.s:entree.a).length)];
+  const contraire=(modeSyn?entree.a:entree.s)[0]; // distracteur "piège"
+  const propositions=new Set([bonneRep,contraire]);
+  let essais=0;
+  while(propositions.size<4&&essais<20){
+    essais++;
+    propositions.add(distracteur([entree.m]));
+  }
+  qEl.innerHTML='Trouve le <b>'+(modeSyn?'SYNONYME':'ANTONYME')+'</b> de';
+  qEl.className=modeSyn?'syn':'ant';
+  motEl.textContent=entree.m;
+  choixEl.innerHTML='';
+  [...propositions].sort(()=>Math.random()-0.5).forEach(v=>{
+    const b=document.createElement('button');
+    b.className='rep';b.textContent=v;
+    b.addEventListener('click',()=>repondre(v,b));
+    choixEl.appendChild(b);
+  });
+  repondu=false;
+}
+function reset(){
+  score=0;serie=0;meilleureSerie=0;bonnes=0;total=0;tempsRestant=DUREE;
+  ordreBanque=[];
+  scoreEl.textContent='0';serieN.textContent='0';
+  fin.style.display='none';
+  serieEl.textContent='Les séries multiplient tes points';
+  nouvelle();
+  jauge.style.width='100%';jauge.style.background='#F5C21B';
+  clearInterval(timer);
+  timer=setInterval(tick,100);
+}
+function tick(){
+  tempsRestant-=0.1;
+  jauge.style.width=Math.max(0,tempsRestant/DUREE*100)+'%';
+  jauge.style.background=tempsRestant<5?'#E32219':'#F5C21B';
+  if(tempsRestant<=0){clearInterval(timer);terminer();}
+}
+function repondre(v,btn){
+  if(repondu)return;
+  repondu=true;total++;
+  if(v===bonneRep){
+    btn.classList.add('bon');
+    bonnes++;serie++;
+    if(serie>meilleureSerie)meilleureSerie=serie;
+    const pts=15+Math.min(30,(serie-1)*4);
+    score+=pts;
+    scoreEl.textContent=score;serieN.textContent=serie;
+    serieEl.textContent=(serie>=3?'🔥 Série x'+serie+' — ':'')+'+'+pts+' pts';
+    SFX.bon();
+  }else{
+    btn.classList.add('mauvais');
+    [...choixEl.children].forEach(b=>{if(b.textContent===bonneRep)b.classList.add('bon');});
+    serie=0;serieN.textContent='0';
+    serieEl.textContent='❌ Réponse : '+bonneRep;
+    SFX.mauvais();
+  }
+  setTimeout(()=>{if(tempsRestant>0)nouvelle();},700);
+}
+function terminer(){
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Vocabulaire',score:Math.round(score*1.3),victoire:score>=280},'*');}catch(e){}}
+  fin.style.display='flex';
+  finScore.textContent=score+' pts';
+  fBonnes.textContent=bonnes;
+  fPrecision.textContent=(total?Math.round(bonnes/total*100):0)+'%';
+  fSerie.textContent=meilleureSerie;
+  finTexte.textContent=score>=280?"Bibliothèque vivante ! Le classement hebdo t'attend."
+    :score>=160?"Beau vocabulaire ! Les longues séries font la différence."
+    :"Continue à lire, chaque mot compte au classement !";
+  if(score>=280){SFX.victoire();domConfetti();}
+}
+document.getElementById('rejouer').addEventListener('click',reset);
+
+window.__voc={forcerFin:()=>{score=320;terminer();},state:()=>({score,serie,tempsRestant,repondu,bonneRep,muet:SFX.estMuet()}),
+  bonneReponse:()=>{const b=[...choixEl.children].find(x=>x.textContent===bonneRep);if(b&&!repondu)repondre(bonneRep,b);}};
+reset();
+})();
+</script>
+</body>
+</html>

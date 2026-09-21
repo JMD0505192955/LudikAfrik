@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>La Tour du Baobab</title>
+<style>
+  :root{--vert:#0E7A3C;--rouge:#E32219;--or:#F5C21B;--nuit:#12130F;--craie:#FAF7EF;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:#101610;font-family:"Arial Black","Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:none;
+    user-select:none;-webkit-user-select:none;}
+  header{width:100%;max-width:430px;padding:8px 14px 4px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-size:16px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial;font-weight:400;font-size:8.5px;letter-spacing:2.5px;color:#8b8f84;margin-top:3px;}
+  .hud{display:flex;align-items:center;gap:10px;font-size:13px;}
+  .hud .val{color:var(--or);}
+  #jauge{width:100%;max-width:430px;padding:0 14px 5px;display:flex;align-items:center;gap:9px;}
+  #jaugeFond{flex:1;height:11px;background:#1a221a;border:1.5px solid #2a3628;border-radius:99px;overflow:hidden;position:relative;}
+  #jaugeBarre{height:100%;background:linear-gradient(90deg,#8a5a2a,#c9a066,#8fd04a);width:0%;transition:width .2s;}
+  #zoneNom{font-family:Arial;font-size:9.5px;letter-spacing:1.5px;color:#a89878;text-transform:uppercase;white-space:nowrap;}
+  #chrono{font-size:13px;color:var(--craie);min-width:52px;text-align:right;}
+  #niveaux{display:flex;gap:6px;justify-content:center;padding:0 14px 5px;width:100%;max-width:430px;}
+  .nivBtn{flex:1;background:#1a221a;border:1.5px solid rgba(245,194,27,.2);color:#a89878;
+    border-radius:999px;padding:6px 4px;font-family:inherit;font-size:11px;}
+  .nivBtn.sel{background:var(--or);border-color:var(--or);color:var(--nuit);font-weight:bold;}
+  #diffBox{display:flex;gap:6px;justify-content:center;padding:0 14px 5px;width:100%;max-width:430px;}
+  .diffBtn{flex:1;background:#1a221a;border:1.5px solid rgba(245,194,27,.2);color:#a89878;
+    border-radius:999px;padding:6px 4px;font-family:inherit;font-size:11px;}
+  .diffBtn.sel{background:var(--or);border-color:var(--or);color:var(--nuit);font-weight:bold;}
+  .diffBtn:active{transform:scale(.96);}
+  #msg{height:19px;font-size:12px;text-align:center;color:var(--or);font-family:Arial;}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;justify-content:center;align-items:center;padding:0 8px 6px;}
+  canvas{display:block;border-radius:12px;}
+  #cmd{position:absolute;bottom:12px;left:14px;right:14px;display:flex;justify-content:space-between;
+    align-items:flex-end;pointer-events:none;}
+  .dpad{display:flex;gap:8px;}
+  .btnC{width:60px;height:60px;border-radius:50%;background:rgba(16,22,16,.55);
+    border:2px solid rgba(250,247,239,.3);display:flex;align-items:center;justify-content:center;
+    font-size:23px;pointer-events:auto;color:var(--craie);backdrop-filter:blur(2px);}
+  .btnC:active{background:rgba(245,194,27,.35);}
+  #bSaut{width:74px;height:74px;background:rgba(14,122,60,.5);border-color:rgba(143,191,110,.5);font-size:27px;}
+  #fin{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(14,18,12,.95);text-align:center;padding:20px;border-radius:12px;}
+  #fin h2{font-size:30px;color:var(--or);margin-bottom:4px;}
+  #fin .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;width:100%;max-width:310px;margin:8px 0 14px;}
+  #fin .stat{background:rgba(245,194,27,.08);border-radius:10px;padding:9px 4px;}
+  #fin .stat .v{font-size:17px;font-weight:bold;color:var(--or);}
+  #fin .stat .l{font-size:8.5px;color:#8fa084;letter-spacing:1px;margin-top:2px;}
+  #fin p{font-family:Arial;font-size:12.5px;color:#c2ccb8;margin-bottom:13px;line-height:1.5;max-width:310px;}
+  #fin button{font-family:inherit;font-size:14px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:11px 30px;margin-top:4px;}
+  #partageBtns{display:flex;flex-direction:column;gap:6px;width:100%;max-width:280px;margin-bottom:10px;}
+  #partageBtns button{background:rgba(255,255,255,.05);border:1px solid #3d4735;color:var(--craie);
+    border-radius:10px;padding:9px;font-size:12px;margin:0;}
+  #partageBtns #btnPartager{border-color:#25D366;color:#25D366;}
+  #partageBtns #btnDefier{border-color:var(--or);color:var(--or);}
+  footer{width:100%;max-width:430px;padding:4px 14px 8px;text-align:center;
+    font-family:Arial;font-size:10px;color:#5d6b55;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">LA TOUR DU <span>BAOBAB</span><small>GRIMPE JUSQU'AU SOMMET</small></div>
+  <div style="display:flex;align-items:center;gap:9px">
+    <button id="btnSon" style="background:none;border:1px solid #4a5544;color:var(--craie);border-radius:999px;width:28px;height:28px;font-size:12px">🔊</button>
+    <div class="hud">
+      <div>❤️<span class="val" id="vies">3</span></div>
+      <div>🐚<span class="val" id="cauris">0</span></div>
+    </div>
+  </div>
+</header>
+<div id="jauge">
+  <div id="zoneNom">Les racines</div>
+  <div id="jaugeFond"><div id="jaugeBarre"></div></div>
+  <div id="chrono">0:00</div>
+</div>
+<div id="niveaux">
+  <button class="nivBtn" data-n="grimpette">🟢 Grimpette</button>
+  <button class="nivBtn sel" data-n="ascension">🟡 Ascension</button>
+  <button class="nivBtn" data-n="cime">🔴 La cime</button>
+</div>
+<div id="diffBox">
+  <button class="diffBtn" data-d="grimpette">🟢 Grimpette</button>
+  <button class="diffBtn sel" data-d="ascension">🟡 Ascension</button>
+  <button class="diffBtn" data-d="cime">🔴 La cime</button>
+</div>
+<div id="msg">Saute de branche en branche !</div>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="cmd">
+    <div class="dpad">
+      <div class="btnC" id="bGauche">◀</div>
+      <div class="btnC" id="bDroite">▶</div>
+    </div>
+    <div class="droite">
+      <div class="btnC" id="bTurbo">🌀<div class="remplissage" style="height:0%"></div></div>
+      <div class="btnC" id="bSaut">⤴</div>
+    </div>
+  </div>
+  <div id="fin">
+    <h2 id="finTitre"></h2>
+    <div class="stats">
+      <div class="stat"><div class="v" id="fHauteur">0</div><div class="l">HAUTEUR</div></div>
+      <div class="stat"><div class="v" id="fCauris">0</div><div class="l">CAURIS</div></div>
+      <div class="stat"><div class="v" id="fTemps">0:00</div><div class="l">TEMPS</div></div>
+    </div>
+    <p id="finTexte"></p>
+    <div id="partageBtns">
+      <button id="btnPartager">📤 Partager mon score</button>
+      <button id="btnDefier">⚔️ Défier un ami</button>
+    </div>
+    <button id="rejouer">REJOUER</button>
+  </div>
+</div>
+<footer>Démo VAS — classement hebdo &amp; lots airtime à venir</footer>
+<script>
+(function(){
+"use strict";
+// ---------- Son ----------
+var actx,muet=false;
+try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+function ac(){if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)();return actx;}
+function tone(f,d,t,v,gl){if(muet)return;try{var c=ac(),o=c.createOscillator(),g=c.createGain();
+o.type=t||'sine';o.frequency.value=f;if(gl)o.frequency.linearRampToValueAtTime(gl,c.currentTime+d);
+g.gain.value=v||0.10;g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+d);
+o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+d);}catch(e){}}
+var SFX={
+  saut:function(){tone(330,0.10,'square',0.07,640);},
+  atterri:function(){tone(180,0.07,'sine',0.07);},
+  cauri:function(){tone(880,0.07,'triangle',0.10,1320);},
+  casse:function(){tone(200,0.14,'sawtooth',0.09,90);},
+  ressort:function(){tone(400,0.13,'square',0.09,1000);},
+  chute:function(){tone(420,0.4,'sine',0.10,80);},
+  degat:function(){[320,250,190].forEach(function(f,i){setTimeout(function(){tone(f,0.15,'sawtooth',0.10);},i*80);});},
+  zone:function(){[523,659,784].forEach(function(f,i){setTimeout(function(){tone(f,0.15,'sine',0.12);},i*90);});},
+  victoire:function(){[523,659,784,1046,1319].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.13);},i*95);});},
+  gameover:function(){[392,311,247,196].forEach(function(f,i){setTimeout(function(){tone(f,0.27,'sine',0.12);},i*155);});},
+  estMuet:function(){return muet;},
+  toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+};
+(function(){var b=document.getElementById('btnSon');
+function m(){b.textContent=SFX.estMuet()?'🔇':'🔊';}m();
+b.addEventListener('click',function(){SFX.toggle();m();});})();
+
+function domConfetti(){
+  var cols=['#F5C21B','#E32219','#0E7A3C','#8fd04a','#FAF7EF'];
+  for(var i=0;i<26;i++){
+    var el=document.createElement('div'),s=4+Math.random()*4;
+    el.style.cssText='position:fixed;z-index:60;pointer-events:none;border-radius:2px;';
+    el.style.width=s+'px';el.style.height=s+'px';el.style.background=cols[i%cols.length];
+    el.style.left=(window.innerWidth/2+(Math.random()-0.5)*70)+'px';el.style.top='40%';
+    document.body.appendChild(el);
+    var dx=(Math.random()-0.5)*250,dy=190+Math.random()*190,r=Math.random()*700-350,d=900+Math.random()*500;
+    el.animate([{transform:'translate(0,0) rotate(0)',opacity:1},
+      {transform:'translate('+dx+'px,'+dy+'px) rotate('+r+'deg)',opacity:0}],
+      {duration:d,easing:'cubic-bezier(.25,.46,.45,.94)'});
+    (function(e,t){setTimeout(function(){e.remove();},t+50);})(el,d);
+  }
+}
+
+var cvs=document.getElementById('c'), ctx=cvs.getContext('2d');
+var $=function(i){return document.getElementById(i);};
+
+// ================= ZONES =================
+var ZONES=[
+  {nom:'Les racines', debut:0,    fin:900,  ciel:['#8ec8e0','#b8dce8','#dce8d0'],
+   tronc:'#7a5a34', feuille:'#2f7a38', vent:0, ecart:62,  larg:[80,120], mobiles:0.12, fragiles:0.05},
+  {nom:'Le tronc',    debut:900,  fin:2100, ciel:['#6aa8d0','#94c4dc','#c8dcc8'],
+   tronc:'#6e4f2c', feuille:'#2a6b32', vent:0.35, ecart:70, larg:[66,100], mobiles:0.28, fragiles:0.16},
+  {nom:'La canopée',  debut:2100, fin:3600, ciel:['#4a88c0','#7aa8d0','#a8c4c8'],
+   tronc:'#5a4224', feuille:'#245c2a', vent:0.9, ecart:78, larg:[54,84], mobiles:0.42, fragiles:0.26},
+];
+function zoneDe(h){
+  for(var i=ZONES.length-1;i>=0;i--)if(h>=ZONES[i].debut)return ZONES[i];
+  return ZONES[0];
+}
+var SOMMET=3600;
+var DIFFICULTES={
+  grimpette:{nom:'Grimpette', vies:5, noix:0.4, guepes:0.5, vent:0.6, coef:0.8},
+  ascension:{nom:'Ascension', vies:3, noix:1.0, guepes:1.0, vent:1.0, coef:1.0},
+  cime:     {nom:'La cime',   vies:2, noix:1.7, guepes:1.6, vent:1.5, coef:1.6},
+};
+var diff='ascension';
+try{var d0=localStorage.getItem('fasogames_tour_diff');if(d0&&DIFFICULTES[d0])diff=d0;}catch(e){}
+function D(){return DIFFICULTES[diff];}
+var noix=[];
+
+// ================= ÉTAT =================
+var W=0,H=0,DPR=1;
+var akim,cam,plateformes,cauris,particules,obstacles;
+var vies,nbCauris,hauteur,hautMax,over,gagne,invincible,tempsJeu,tDebut,zoneAct,record=0;
+var gauche=false,droite=false,sautDemande=false,tNoix=0,turboDemande=false;
+var turboCharge=0, TURBO_MAX=5;   // 5 cauris pour un super-saut
+try{record=parseInt(localStorage.getItem('fasogames_tour_record')||'0',10)||0;}catch(e){}
+
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  var r=cvs.parentElement.getBoundingClientRect();
+  W=Math.min(r.width-4,414);
+  H=Math.min(r.height-4, W*1.34);
+  cvs.style.width=W+'px';cvs.style.height=H+'px';
+  cvs.width=W*DPR;cvs.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize',function(){resize();});
+
+function genererTour(){
+  plateformes=[];cauris=[];particules=[];obstacles=[];
+  // sol de départ
+  plateformes.push({x:W*0.5-90,y:0,w:180,h:14,type:'sol'});
+  var y=0;
+  while(y<SOMMET+200){
+    var Z=zoneDe(y);
+    y+=Z.ecart*(0.85+Math.random()*0.35);
+    var lw=Z.larg[0]+Math.random()*(Z.larg[1]-Z.larg[0]);
+    // rester à portée horizontale de la plateforme précédente
+    var prec=plateformes[plateformes.length-1];
+    var centrePrec=prec?prec.x+prec.w/2:W*0.5;
+    var portee=110;
+    var minX=Math.max(20,centrePrec-portee-lw/2);
+    var maxX=Math.min(W-20-lw,centrePrec+portee-lw/2);
+    if(maxX<minX){minX=20;maxX=Math.max(20,W-20-lw);}
+    var px=minX+Math.random()*(maxX-minX);
+    var r=Math.random();
+    var type='branche';
+    if(r<Z.fragiles)type='fragile';
+    else if(r<Z.fragiles+Z.mobiles)type='mobile';
+    else if(r<Z.fragiles+Z.mobiles+0.07)type='ressort';
+    var p={x:px,y:y,w:lw,h:13,type:type,t0:Math.random()*100};
+    if(type==='mobile'){
+      p.ampl=Math.min(70,(W-lw-48)*0.42);
+      p.baseX=Math.max(24,Math.min(W-24-lw,px));
+      p.vitesse=0.010+Math.random()*0.012;
+    }
+    if(type==='fragile'){p.pv=1;p.casse=false;}
+    plateformes.push(p);
+    // cauris au-dessus
+    if(Math.random()<0.42)cauris.push({x:px+lw/2,y:y+30,pris:false,t:Math.random()*6});
+    // obstacles à partir du tronc
+    if(y>900&&Math.random()<0.10*D().guepes){
+      obstacles.push({x:24+Math.random()*(W-48),y:y+40,type:'guepe',t:Math.random()*100,
+        ampl:36+Math.random()*40,base:24+Math.random()*(W-48)});
+    }
+  }
+  // plateforme sommet
+  plateformes.push({x:W*0.5-70,y:SOMMET,w:140,h:16,type:'sommet'});
+}
+function reset(){
+  resize();
+  vies=D().vies;nbCauris=0;hauteur=0;hautMax=0;over=false;gagne=false;invincible=0;
+  noix=[];tNoix=0;
+  tempsJeu=0;tDebut=Date.now();
+  genererTour();
+  akim={x:W*0.5,y:14+21,w:24,h:42,vx:0,vy:0,sol:true,regard:1,anim:0};
+  cam=0;zoneAct=ZONES[0];
+  gauche=droite=sautDemande=turboDemande=false;
+  turboCharge=0;majTurbo();
+  $('vies').textContent=vies;$('cauris').textContent='0';
+  document.querySelectorAll('.nivBtn').forEach(function(b){
+    b.classList.toggle('sel',b.dataset.n===diff);
+  });
+  $('fin').style.display='none';
+  $('msg').textContent='Saute de branche en branche !';
+  majJauge();
+}
+function majTurbo(){
+  var pct=Math.round(turboCharge/TURBO_MAX*100);
+  var b=document.getElementById('bTurbo');
+  if(!b)return;
+  b.querySelector('.remplissage').style.height=pct+'%';
+  b.classList.toggle('pret',turboCharge>=TURBO_MAX);
+}
+function declencherTurbo(){
+  if(over||turboCharge<TURBO_MAX)return;
+  turboCharge=0;majTurbo();
+  akim.vy=-SAUT*1.85;      // bond très haut
+  akim.sol=false;
+  SFX.ressort();
+  $('msg').textContent='🌀 Bond du vent ! Akim s\'envole';
+  for(var i=0;i<18;i++){
+    var a=Math.random()*Math.PI*2, v=1.5+Math.random()*2.5;
+    particules.push({x:akim.x,y:akim.y-14,vx:Math.cos(a)*v,vy:Math.sin(a)*v,
+      vie:1,col:i%2?'#c8a0ff':'#8fd04a',t:2.5+Math.random()*2.5});
+  }
+}
+function majJauge(){
+  var pct=Math.min(100,Math.round(hautMax/SOMMET*100));
+  $('jaugeBarre').style.width=pct+'%';
+  $('zoneNom').textContent=zoneAct.nom;
+  var s=Math.floor(tempsJeu);
+  $('chrono').textContent=Math.floor(s/60)+':'+('0'+(s%60)).slice(-2);
+}
+
+// ================= PHYSIQUE =================
+var G=0.52, VMAX=3.9, SAUT=-12.2;
+function step(dt){
+  if(over)return;
+  tempsJeu=(Date.now()-tDebut)/1000;
+  if(invincible>0)invincible-=dt;
+  var Z=zoneDe(hauteur);
+  if(Z!==zoneAct){
+    zoneAct=Z;
+    SFX.zone();
+    $('msg').textContent='🌿 '+Z.nom+(Z.vent>0.5?' — attention au vent !':'');
+  }
+
+  // vent latéral
+  var vent=Z.vent*D().vent*Math.sin(tempsJeu*0.6)*0.09;
+
+  if(gauche){akim.vx-=0.62*dt;akim.regard=-1;}
+  if(droite){akim.vx+=0.62*dt;akim.regard=1;}
+  if(!gauche&&!droite)akim.vx*=Math.pow(0.86,dt);
+  akim.vx+=vent*dt;
+  akim.vx=Math.max(-VMAX,Math.min(VMAX,akim.vx));
+  akim.x+=akim.vx*dt;
+  // bords : on rebondit doucement sur le tronc
+  if(akim.x<16){akim.x=16;akim.vx=Math.abs(akim.vx)*0.4;}
+  if(akim.x>W-16){akim.x=W-16;akim.vx=-Math.abs(akim.vx)*0.4;}
+  if(Math.abs(akim.vx)>0.4)akim.anim+=Math.abs(akim.vx)*dt*0.03;
+
+  if(turboDemande){turboDemande=false;declencherTurbo();}
+  if(sautDemande&&akim.sol){akim.vy=-SAUT;akim.sol=false;SFX.saut();}
+  sautDemande=false;
+
+  // y croît vers le haut : vy>0 = monte, vy<0 = descend
+  akim.vy-=G*dt;
+  if(akim.vy<-17)akim.vy=-17;
+  var ancY=akim.y;
+  akim.y+=akim.vy*dt;
+
+  // plateformes mobiles
+  plateformes.forEach(function(p){
+    if(p.type==='mobile'){
+      p.t0+=dt;
+      p.x=p.baseX+Math.sin(p.t0*p.vitesse)*p.ampl;
+    }
+  });
+
+  // collision : on ne s'accroche qu'en descendant
+  akim.sol=false;
+  if(akim.vy<=0){   // en descente uniquement
+    for(var i=0;i<plateformes.length;i++){
+      var p=plateformes[i];
+      if(p.casse)continue;
+      var dessus=p.y+p.h;   // niveau du dessus de la branche
+      if(akim.x+akim.w*0.4<p.x||akim.x-akim.w*0.4>p.x+p.w)continue;
+      var basAvant=ancY-akim.h*0.5, basApres=akim.y-akim.h*0.5;
+      if(basAvant>=dessus-4&&basApres<=dessus+10){
+        akim.y=dessus+akim.h*0.5+1;
+        if(p.type==='ressort'){
+          akim.vy=-SAUT*1.42;akim.sol=false;
+          SFX.ressort();
+          for(var r2=0;r2<8;r2++){
+            var a2=Math.PI*0.25+Math.random()*Math.PI*0.5;
+            particules.push({x:akim.x,y:dessus,vx:Math.cos(a2)*2,vy:Math.sin(a2)*2,
+              vie:1,col:'#8fd04a',t:2+Math.random()*2});
+          }
+        }else{
+          akim.vy=0;akim.sol=true;
+          if(ancY-akim.y>3)SFX.atterri();
+          if(p.type==='fragile'){
+            p.pv-=dt*0.09;
+            if(p.pv<=0){
+              p.casse=true;akim.sol=false;
+              SFX.casse();
+              for(var f=0;f<10;f++){
+                particules.push({x:p.x+Math.random()*p.w,y:p.y,
+                  vx:(Math.random()-0.5)*2.4,vy:-Math.random()*1.6,
+                  vie:1,col:'#8a6a3a',t:2+Math.random()*2.5});
+              }
+            }
+          }
+          if(p.type==='mobile')akim.x+=Math.cos(p.t0*p.vitesse)*p.ampl*p.vitesse*dt;
+        }
+        break;
+      }
+    }
+  }
+
+  hauteur=Math.max(0,Math.round(akim.y));
+  if(hauteur>hautMax)hautMax=hauteur;
+
+  // caméra qui suit vers le haut
+  var cible=akim.y-H*0.38;
+  // la caméra ne redescend jamais en dessous du plus haut atteint
+  if(cible>cam)cam+=(cible-cam)*0.11*dt;
+  else cam+=(cible-cam)*0.05*dt;
+  if(cam<0)cam=0;
+
+  // chute mortelle : trop bas sous la caméra, ou sous le niveau du sol
+  if(akim.y<cam-40||akim.y<-30){
+    perdreVie();
+    return;
+  }
+
+  // cauris
+  cauris.forEach(function(cu){
+    if(cu.pris)return;
+    cu.t+=dt*0.1;
+    if(Math.abs(cu.x-akim.x)<24&&Math.abs(cu.y-akim.y)<28){
+      cu.pris=true;nbCauris++;
+      SFX.cauri();
+      $('cauris').textContent=nbCauris;
+      if(turboCharge<TURBO_MAX){
+        turboCharge++;majTurbo();
+        if(turboCharge===TURBO_MAX)$('msg').textContent='🌀 Bond du vent prêt !';
+      }
+      for(var k=0;k<7;k++){
+        var a3=Math.random()*Math.PI*2;
+        particules.push({x:cu.x,y:cu.y,vx:Math.cos(a3)*1.8,vy:Math.sin(a3)*1.8,
+          vie:1,col:'#F5C21B',t:2+Math.random()*2});
+      }
+    }
+  });
+
+  // guêpes
+  obstacles.forEach(function(o){
+    o.t+=dt;
+    o.x=o.base+Math.sin(o.t*0.024)*o.ampl;
+    if(invincible<=0&&Math.abs(o.x-akim.x)<20&&Math.abs(o.y-akim.y)<22){
+      perdreVie();
+    }
+  });
+
+  // ---- noix de karité qui tombent ----
+  tNoix+=dt;
+  var cadenceNoix=Math.max(24,72-hauteur*0.008)/D().noix;
+  if(hauteur>240&&tNoix>cadenceNoix){
+    tNoix=0;
+    // tombe depuis le haut de l'écran, parfois au-dessus d'Akim
+    var viseAkim=Math.random()<0.45;
+    var nx=viseAkim ? akim.x+(Math.random()-0.5)*50 : 24+Math.random()*(W-48);
+    noix.push({x:Math.max(16,Math.min(W-16,nx)), y:cam+H+30, vy:-2.3-Math.random()*1.6,
+      rot:Math.random()*6, vr:(Math.random()-0.5)*0.35, taille:6+Math.random()*3});
+  }
+  for(var ni=noix.length-1;ni>=0;ni--){
+    var nz=noix[ni];
+    nz.vy-=0.045*dt;
+    nz.y+=nz.vy*dt;
+    nz.rot+=nz.vr*dt;
+    if(nz.y<cam-50){noix.splice(ni,1);continue;}
+    if(invincible<=0&&Math.abs(nz.x-akim.x)<17&&Math.abs(nz.y-akim.y)<22){
+      noix.splice(ni,1);
+      SFX.degat();
+      exploserNoix(nz.x,nz.y);
+      perdreVie();
+      return;
+    }
+  }
+
+  // particules
+  for(var pi=particules.length-1;pi>=0;pi--){
+    var pa=particules[pi];
+    pa.x+=pa.vx*dt;pa.y+=pa.vy*dt;pa.vy-=0.14*dt;pa.vie-=0.03*dt;
+    if(pa.vie<=0)particules.splice(pi,1);
+  }
+
+  majJauge();
+  if(akim.y>=SOMMET-10)terminer(true);
+}
+function exploserNoix(x,y){
+  for(var i=0;i<9;i++){
+    var a=Math.random()*Math.PI*2,v=1+Math.random()*2;
+    particules.push({x:x,y:y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,vie:1,col:'#8a6a3a',
+      t:2+Math.random()*2});
+  }
+}
+function perdreVie(){
+  if(invincible>0)return;
+  vies--;
+  $('vies').textContent=Math.max(0,vies);
+  SFX.chute();
+  if(vies<=0){terminer(false);return;}
+  invincible=80;
+  $('msg').textContent='💔 Plus que '+vies+' vie'+(vies>1?'s':'')+' !';
+  // replacer sur la plateforme sûre la plus proche en dessous
+  var meilleure=plateformes[0];
+  for(var i=0;i<plateformes.length;i++){
+    var p=plateformes[i];
+    if(p.casse||p.type==='fragile')continue;
+    if(p.y<akim.y&&p.y>meilleure.y)meilleure=p;
+  }
+  akim.x=meilleure.x+meilleure.w/2;
+  akim.y=meilleure.y+meilleure.h+akim.h*0.5;
+  akim.vx=0;akim.vy=0;
+  cam=akim.y-H*0.38;
+  if(cam<0)cam=0;
+}
+function terminer(win){
+  over=true;gagne=win;
+  if(hautMax>record){record=hautMax;try{localStorage.setItem('fasogames_tour_record',record);}catch(e){}}
+  var s=Math.floor(tempsJeu);
+  $('finTitre').textContent=win?'🌳 SOMMET ATTEINT !':hautMax+' m';
+  $('fHauteur').textContent=hautMax+' m';
+  $('fCauris').textContent=nbCauris;
+  $('fTemps').textContent=Math.floor(s/60)+':'+('0'+(s%60)).slice(-2);
+  $('finTexte').textContent = win
+    ? 'Akim a atteint la cime du baobab en '+Math.floor(s/60)+' min '+(s%60)+' s ! Le classement hebdo t\'attend.'
+    : hautMax>1800 ? 'Belle ascension ! La canopée est le vrai défi, le vent y pousse fort.'
+    : 'Vise les branches à ressort pour bondir plus haut, et méfie-toi des branches sèches.';
+  if(win){SFX.victoire();domConfetti();}else{SFX.gameover();}
+  var envoi=Math.round(Math.min(700,(hautMax*0.18+nbCauris*8)*D().coef));
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'La Tour du Baobab',
+    score:envoi,victoire:win},'*');}catch(e){}}
+  $('fin').style.display='flex';
+}
+
+// ================= RENDU =================
+function ecran(y){return H-(y-cam);}  // convertit hauteur monde -> y écran
+function draw(){
+  var Z=zoneAct;
+  // ciel dégradé selon la zone
+  var g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,Z.ciel[0]);g.addColorStop(0.55,Z.ciel[1]);g.addColorStop(1,Z.ciel[2]);
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+
+  // nuages en parallaxe
+  for(var n=0;n<5;n++){
+    var nx=(n*130+Math.sin(tempsJeu*0.1+n)*20)%(W+80)-40;
+    var ny=H-((n*420+cam*0.25)%(H+300))+60;
+    if(ny<-60||ny>H+60)continue;
+    ctx.fillStyle='rgba(255,255,255,.55)';
+    [[0,0,22],[20,4,17],[-19,4,15]].forEach(function(b){
+      ctx.beginPath();ctx.arc(nx+b[0],ny+b[1],b[2],0,7);ctx.fill();
+    });
+  }
+
+  // le tronc du baobab au centre, en fond
+  var tw=W*0.30;
+  var gt=ctx.createLinearGradient(W/2-tw/2,0,W/2+tw/2,0);
+  gt.addColorStop(0,'rgba(60,42,20,.45)');
+  gt.addColorStop(0.4,Z.tronc);
+  gt.addColorStop(1,'rgba(50,34,16,.55)');
+  ctx.fillStyle=gt;
+  ctx.fillRect(W/2-tw/2,0,tw,H);
+  // stries du tronc
+  ctx.strokeStyle='rgba(40,26,10,.30)';ctx.lineWidth=2.5;
+  for(var s=0;s<7;s++){
+    var sx=W/2-tw/2+8+s*(tw-16)/6;
+    ctx.beginPath();
+    ctx.moveTo(sx,0);
+    ctx.bezierCurveTo(sx+6,H*0.3,sx-6,H*0.7,sx,H);
+    ctx.stroke();
+  }
+  // feuillages accrochés au tronc
+  for(var f=0;f<12;f++){
+    var fy=ecran(Math.floor(cam/150)*150+f*150);
+    if(fy<-70||fy>H+70)continue;
+    var cote=(f%2===0)?-1:1;
+    ctx.fillStyle=Z.feuille;
+    ctx.globalAlpha=.75;
+    [[0,0,26],[cote*22,8,20],[cote*10,-14,18]].forEach(function(b){
+      ctx.beginPath();ctx.arc(W/2+cote*tw*0.5+b[0],fy+b[1],b[2],0,7);ctx.fill();
+    });
+    ctx.globalAlpha=1;
+  }
+
+  // plateformes
+  plateformes.forEach(function(p){
+    var py=ecran(p.y);
+    if(py<-40||py>H+40)return;
+    if(p.casse)return;
+    if(p.type==='sommet'){
+      // plate-forme d'arrivée
+      var gs=ctx.createLinearGradient(0,py-8,0,py+p.h);
+      gs.addColorStop(0,'#F5C21B');gs.addColorStop(1,'#a8830a');
+      ctx.fillStyle=gs;
+      ctx.beginPath();ctx.roundRect(p.x,py-p.h,p.w,p.h,5);ctx.fill();
+      ctx.fillStyle='#2f7a38';
+      [[0,-14,30],[-32,-6,24],[32,-6,24]].forEach(function(b){
+        ctx.beginPath();ctx.arc(p.x+p.w/2+b[0],py-p.h+b[1],b[2],0,7);ctx.fill();
+      });
+      ctx.fillStyle='#12130F';ctx.font='bold 11px Arial';ctx.textAlign='center';
+      ctx.fillText('SOMMET',p.x+p.w/2,py-p.h+4);
+      return;
+    }
+    var col1='#8a6a3a',col2='#5a4424';
+    if(p.type==='fragile'){col1='#a08a5a';col2='#6a5a34';}
+    if(p.type==='mobile'){col1='#7a8a4a';col2='#4a5a28';}
+    if(p.type==='ressort'){col1='#5a9a48';col2='#2f6b28';}
+    var gp=ctx.createLinearGradient(0,py-p.h,0,py);
+    gp.addColorStop(0,col1);gp.addColorStop(1,col2);
+    ctx.fillStyle=gp;
+    ctx.beginPath();ctx.roundRect(p.x,py-p.h,p.w,p.h,5);ctx.fill();
+    ctx.strokeStyle='rgba(30,20,8,.5)';ctx.lineWidth=1.5;ctx.stroke();
+    // mousse sur le dessus
+    ctx.fillStyle=(p.type==='ressort')?'#8fd04a':'rgba(70,130,60,.65)';
+    ctx.fillRect(p.x+2,py-p.h,p.w-4,3.5);
+    if(p.type==='fragile'){
+      // fissures
+      ctx.strokeStyle='rgba(60,40,15,.7)';ctx.lineWidth=1.4;
+      for(var c2=1;c2<3;c2++){
+        var cx2=p.x+p.w*c2/3;
+        ctx.beginPath();ctx.moveTo(cx2,py-p.h);ctx.lineTo(cx2+3,py);ctx.stroke();
+      }
+    }
+    if(p.type==='ressort'){
+      // spirale
+      ctx.strokeStyle='#d8f0a0';ctx.lineWidth=2;
+      ctx.beginPath();
+      for(var w2=0;w2<4;w2++){
+        ctx.moveTo(p.x+p.w/2-9+w2*6,py-p.h-3);
+        ctx.lineTo(p.x+p.w/2-6+w2*6,py-p.h-7);
+      }
+      ctx.stroke();
+    }
+  });
+
+  // cauris
+  cauris.forEach(function(cu){
+    if(cu.pris)return;
+    var cy=ecran(cu.y);
+    if(cy<-30||cy>H+30)return;
+    var fl=Math.sin(cu.t)*3;
+    ctx.save();ctx.translate(cu.x,cy+fl);
+    ctx.shadowBlur=9;ctx.shadowColor='rgba(245,194,27,.75)';
+    var gc=ctx.createRadialGradient(-3,-3,1,0,0,10);
+    gc.addColorStop(0,'#fff6c8');gc.addColorStop(1,'#d9a406');
+    ctx.fillStyle=gc;
+    ctx.beginPath();ctx.ellipse(0,0,9,7,0,0,7);ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.strokeStyle='rgba(120,80,0,.6)';ctx.lineWidth=1.3;
+    ctx.beginPath();ctx.moveTo(-4,0);ctx.lineTo(4,0);ctx.stroke();
+    ctx.restore();
+  });
+
+  // guêpes
+  obstacles.forEach(function(o){
+    var oy=ecran(o.y);
+    if(oy<-30||oy>H+30)return;
+    ctx.save();ctx.translate(o.x,oy);
+    var bat=Math.sin(o.t*0.8)*3;
+    // ailes
+    ctx.fillStyle='rgba(230,240,255,.6)';
+    ctx.beginPath();ctx.ellipse(-4,-6+bat,7,4,-0.5,0,7);ctx.fill();
+    ctx.beginPath();ctx.ellipse(4,-6-bat,7,4,0.5,0,7);ctx.fill();
+    // corps rayé
+    ctx.fillStyle='#e8b020';
+    ctx.beginPath();ctx.ellipse(0,0,9,6,0,0,7);ctx.fill();
+    ctx.fillStyle='#2a2210';
+    ctx.fillRect(-5,-5,3,10);ctx.fillRect(1,-5,3,10);
+    // dard
+    ctx.strokeStyle='#2a2210';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(9,0);ctx.lineTo(14,1);ctx.stroke();
+    ctx.restore();
+  });
+
+  // noix qui tombent
+  noix.forEach(function(nz){
+    var ny=ecran(nz.y);
+    if(ny<-40||ny>H+40)return;
+    ctx.save();
+    ctx.translate(nz.x,ny);
+    ctx.rotate(nz.rot);
+    // ombre de menace juste avant l'impact
+    var gr=ctx.createRadialGradient(-nz.taille*0.3,-nz.taille*0.3,1,0,0,nz.taille);
+    gr.addColorStop(0,'#a8834a');gr.addColorStop(0.6,'#7a5a2e');gr.addColorStop(1,'#4a3618');
+    ctx.fillStyle=gr;
+    ctx.beginPath();ctx.ellipse(0,0,nz.taille,nz.taille*0.82,0,0,7);ctx.fill();
+    ctx.strokeStyle='rgba(35,24,8,.7)';ctx.lineWidth=1.4;ctx.stroke();
+    // nervure
+    ctx.strokeStyle='rgba(50,34,12,.55)';ctx.lineWidth=1.2;
+    ctx.beginPath();ctx.moveTo(-nz.taille*0.6,0);ctx.lineTo(nz.taille*0.6,0);ctx.stroke();
+    // reflet
+    ctx.fillStyle='rgba(255,240,200,.35)';
+    ctx.beginPath();ctx.ellipse(-nz.taille*0.32,-nz.taille*0.3,nz.taille*0.26,nz.taille*0.18,-0.5,0,7);ctx.fill();
+    ctx.restore();
+    // traînée de chute
+    ctx.globalAlpha=.18;
+    ctx.fillStyle='#8a6a3a';
+    ctx.beginPath();ctx.ellipse(nz.x,ny-nz.vy*3,nz.taille*0.6,nz.taille*1.4,0,0,7);ctx.fill();
+    ctx.globalAlpha=1;
+  });
+
+  // particules
+  particules.forEach(function(p){
+    var py2=ecran(p.y);
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.beginPath();ctx.arc(p.x,py2,p.t*p.vie,0,7);ctx.fill();
+    ctx.globalAlpha=1;
+  });
+
+  // Akim
+  dessinerAkim();
+
+  // indicateur de vent
+  if(zoneAct.vent>0.2){
+    var fv=Math.sin(tempsJeu*0.6);
+    ctx.save();
+    ctx.globalAlpha=0.22+Math.abs(fv)*0.18;
+    ctx.strokeStyle='#ffffff';ctx.lineWidth=2;ctx.lineCap='round';
+    for(var v=0;v<6;v++){
+      var vy=40+v*((H-80)/6);
+      var lg=22+Math.abs(fv)*24;
+      var dx=(fv>0?1:-1);
+      ctx.beginPath();
+      ctx.moveTo(W*0.5-dx*lg*1.6,vy);
+      ctx.lineTo(W*0.5+dx*lg*0.4,vy);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+function dessinerAkim(){
+  var k=akim;
+  var ky=ecran(k.y);
+  if(invincible>0&&Math.floor(invincible/6)%2===0)return;
+  ctx.save();
+  ctx.translate(k.x,ky);
+  ctx.scale(k.regard,1);
+  var grimpe=!k.sol;
+  var bal=k.sol?Math.sin(k.anim*Math.PI*2)*4:0;
+  // jambes
+  ctx.strokeStyle='#2b3a6b';ctx.lineWidth=5;ctx.lineCap='round';
+  if(grimpe){
+    ctx.beginPath();ctx.moveTo(-3,6);ctx.lineTo(-6,14);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(3,6);ctx.lineTo(7,13);ctx.stroke();
+  }else{
+    ctx.beginPath();ctx.moveTo(-3,6);ctx.lineTo(-4-bal*0.5,17);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(3,6);ctx.lineTo(4+bal*0.5,17);ctx.stroke();
+  }
+  ctx.strokeStyle='#1a1a18';ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(-4-bal*0.5,grimpe?14:17);ctx.lineTo(-1-bal*0.5,grimpe?15:18);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(4+bal*0.5,grimpe?13:17);ctx.lineTo(7+bal*0.5,grimpe?14:18);ctx.stroke();
+  // torse
+  var gt2=ctx.createLinearGradient(-8,-8,8,8);
+  gt2.addColorStop(0,'#18a04f');gt2.addColorStop(1,'#0b5c2c');
+  ctx.fillStyle=gt2;
+  ctx.beginPath();ctx.roundRect(-8,-8,16,16,4);ctx.fill();
+  ctx.fillStyle='#F5C21B';
+  ctx.fillRect(-8,-3,16,3.5);
+  // bras : levés en l'air quand il saute
+  ctx.strokeStyle='#a8763f';ctx.lineWidth=4.5;
+  if(grimpe){
+    ctx.beginPath();ctx.moveTo(-6,-5);ctx.lineTo(-11,-15);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(6,-5);ctx.lineTo(11,-15);ctx.stroke();
+  }else{
+    ctx.beginPath();ctx.moveTo(-6,-5);ctx.lineTo(-11+bal*0.5,1);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(6,-5);ctx.lineTo(11-bal*0.5,1);ctx.stroke();
+  }
+  // tête
+  var gh=ctx.createRadialGradient(-2,-16,2,0,-14,9);
+  gh.addColorStop(0,'#b8834a');gh.addColorStop(1,'#7d5527');
+  ctx.fillStyle=gh;
+  ctx.beginPath();ctx.arc(0,-14,8,0,7);ctx.fill();
+  ctx.fillStyle='#1a1410';
+  ctx.beginPath();ctx.arc(0,-17,8,Math.PI,0);ctx.fill();
+  ctx.fillStyle='#12130F';
+  ctx.beginPath();ctx.arc(4,-14,1.7,0,7);ctx.fill();
+  ctx.strokeStyle='#5c3a1a';ctx.lineWidth=1.3;
+  ctx.beginPath();ctx.arc(3,-11,3,0.2,1.2);ctx.stroke();
+  ctx.restore();
+}
+
+// ================= COMMANDES =================
+function presser(el,set){
+  el.addEventListener('touchstart',function(e){set(true);e.preventDefault();},{passive:false});
+  el.addEventListener('touchend',function(e){set(false);e.preventDefault();},{passive:false});
+  el.addEventListener('mousedown',function(){set(true);});
+  window.addEventListener('mouseup',function(){set(false);});
+}
+presser($('bGauche'),function(v){gauche=v;});
+presser($('bDroite'),function(v){droite=v;});
+$('bSaut').addEventListener('touchstart',function(e){sautDemande=true;e.preventDefault();},{passive:false});
+$('bSaut').addEventListener('mousedown',function(){sautDemande=true;});
+window.addEventListener('keydown',function(e){
+  if(e.key==='ArrowLeft')gauche=true;
+  if(e.key==='ArrowRight')droite=true;
+  if(e.key===' '||e.key==='ArrowUp'){sautDemande=true;e.preventDefault();}
+  if(e.key==='ArrowDown'||e.key==='x'||e.key==='X'){turboDemande=true;e.preventDefault();}
+});
+window.addEventListener('keyup',function(e){
+  if(e.key==='ArrowLeft')gauche=false;
+  if(e.key==='ArrowRight')droite=false;
+});
+(function(){
+  document.querySelectorAll('.diffBtn').forEach(function(x){x.classList.toggle('sel',x.dataset.d===diff);});
+})();
+$('bTurbo').addEventListener('touchstart',function(e){turboDemande=true;e.preventDefault();},{passive:false});
+$('bTurbo').addEventListener('mousedown',function(){turboDemande=true;});
+document.querySelectorAll('.diffBtn').forEach(function(b){
+  b.addEventListener('click',function(){
+    diff=b.dataset.d;
+    try{localStorage.setItem('fasogames_tour_diff',diff);}catch(e){}
+    document.querySelectorAll('.diffBtn').forEach(function(x){x.classList.toggle('sel',x.dataset.d===diff);});
+    reset();
+  });
+});
+$('rejouer').addEventListener('click',reset);
+document.querySelectorAll('.nivBtn').forEach(function(b){
+  b.addEventListener('click',function(){
+    diff=b.dataset.n;
+    try{localStorage.setItem('fasogames_tour_diff',diff);}catch(e){}
+    reset();
+  });
+});
+
+// ---- partage ----
+var LIEN='https://teal-muffin-8e3f01.netlify.app';
+function msgScore(){
+  return "🌳 J'ai grimpé "+hautMax+" m dans La Tour du Baobab ("+nbCauris+
+    " cauris) ! À ton tour de jouer ici 👉 "+LIEN;
+}
+function msgDefi(){
+  return "⚔️ Je te défie sur La Tour du Baobab ! Mon record : "+hautMax+
+    " m. Bats-moi si tu peux 👉 "+LIEN;
+}
+function envoyer(m){
+  if(navigator.share)navigator.share({title:'La Tour du Baobab',text:m,url:LIEN}).catch(function(){});
+  else window.open('https://wa.me/?text='+encodeURIComponent(m),'_blank');
+}
+$('btnPartager').addEventListener('click',function(){envoyer(msgScore());});
+$('btnDefier').addEventListener('click',function(){envoyer(msgDefi());});
+
+window.__tour={
+  state:function(){return {x:Math.round(akim.x),y:Math.round(akim.y),hauteur:hautMax,
+    vies:vies,cauris:nbCauris,over:over,gagne:gagne,sol:akim.sol,
+    zone:zoneAct.nom,sommet:SOMMET,temps:Math.round(tempsJeu),
+    plateformes:plateformes.length,obstacles:obstacles.length,muet:SFX.estMuet()};},
+  aller:function(d){gauche=(d<0);droite=(d>0);},
+  stop:function(){gauche=droite=false;},
+  sauter:function(){sautDemande=true;},
+  monter:function(h){
+    akim.y=h;akim.vy=0;akim.x=W*0.5;
+    cam=Math.max(0,h-H*0.38);
+    hauteur=h;if(h>hautMax)hautMax=h;
+  },
+  forcerFin:function(w){terminer(!!w);},
+  changerDiff:function(d){if(DIFFICULTES[d]){diff=d;
+    document.querySelectorAll('.diffBtn').forEach(function(x){x.classList.toggle('sel',x.dataset.d===d);});
+    reset();}},
+  turbo:function(){return {charge:turboCharge,max:TURBO_MAX,pret:turboCharge>=TURBO_MAX};},
+  chargerTurbo:function(){turboCharge=TURBO_MAX;majTurbo();},
+  declencherTurbo:function(){turboDemande=true;},
+  infos:function(){return {diff:diff,nom:D().nom,noix:noix.length,
+    guepes:obstacles.length,vies:vies};},
+
+  typesPlateformes:function(){
+    var t={};
+    plateformes.forEach(function(p){t[p.type]=(t[p.type]||0)+1;});
+    return t;
+  }
+};
+
+var last=0;
+function loop(now){
+  var dt=Math.min(2.5,(now-last)/16.7);last=now;
+  step(dt);draw();
+  requestAnimationFrame(loop);
+}
+resize();reset();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Serpent Faso</title>
+<style>
+  :root{
+    --vert:#0E7A3C; --vert-fonce:#0A5C2D; --rouge:#E32219; --or:#F5C21B;
+    --nuit:#12130F; --craie:#FAF7EF;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    background:var(--nuit);
+    font-family:"Arial Black","Segoe UI",Arial,sans-serif;
+    color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;
+    overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;
+  }
+  header{
+    width:100%;max-width:430px;padding:12px 16px 8px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .logo{font-size:20px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial,sans-serif;font-weight:400;font-size:9px;letter-spacing:3px;color:#8b8f84;margin-top:3px;}
+  .scores{text-align:right;line-height:1.25;}
+  .scores .val{font-size:20px;color:var(--or);}
+  .scores .lbl{font-family:Arial,sans-serif;font-size:9px;letter-spacing:2px;color:#8b8f84;}
+  #msg{height:26px;font-size:14px;letter-spacing:.5px;text-align:center;color:var(--or);}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;justify-content:center;padding:0 12px 4px;}
+  canvas{display:block;border-radius:14px;}
+  #fin{
+    position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,19,15,.88);text-align:center;padding:24px;border-radius:14px;
+  }
+  #fin h2{font-size:30px;color:var(--or);margin-bottom:6px;}
+  #fin p{font-family:Arial,sans-serif;font-size:14px;color:#c9ccc0;margin-bottom:20px;line-height:1.5;}
+  #fin button{
+    font-family:inherit;font-size:16px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:14px 34px;
+  }
+  #fin button:active{transform:scale(.96);}
+  footer{
+    width:100%;max-width:430px;padding:8px 16px 14px;text-align:center;
+    font-family:Arial,sans-serif;font-size:11px;color:#6c7064;letter-spacing:.5px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">SERPENT <span>FASO</span><small>ATTRAPE LES MANGUES</small></div>
+  <div style="display:flex;align-items:center;gap:0"><button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:32px;height:32px;font-size:14px;margin-right:8px">🔊</button>
+<div class="scores">
+    <div class="val" id="score">0</div>
+    <div class="lbl">RECORD <span id="best">0</span></div>
+  </div>
+</div>
+</header>
+<div id="msg">Glisse le doigt pour diriger le serpent</div>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="fin">
+    <h2 id="finTitre"></h2>
+    <p id="finTexte"></p>
+    <button id="rejouer">REJOUER</button>
+  </div>
+</div>
+<footer>Démo VAS — classement hebdo &amp; lots airtime à venir</footer>
+
+<script>
+(function(){
+"use strict";
+// ===== Kit sonore Faso Games (synthétisé, 0 Ko d'assets, silencieux par défaut respecté) =====
+var SFX=(function(){
+  var ctx,muet=false;
+  try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+  function ac(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();return ctx;}
+  function tone(freq,dur,type,vol,glide){
+    if(muet)return;
+    try{
+      var c=ac();var o=c.createOscillator();var g=c.createGain();
+      o.type=type||'sine';o.frequency.value=freq;
+      if(glide)o.frequency.linearRampToValueAtTime(glide,c.currentTime+dur);
+      g.gain.value=vol||0.15;
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+      o.connect(g);g.connect(c.destination);
+      o.start();o.stop(c.currentTime+dur);
+    }catch(e){}
+  }
+  return{
+    tap:function(){tone(440,0.05,'square',0.08);},
+    bon:function(){tone(523,0.09,'sine',0.14);setTimeout(function(){tone(784,0.12,'sine',0.14);},70);},
+    mauvais:function(){tone(160,0.22,'sawtooth',0.12,90);},
+    victoire:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.15);},i*90);});},
+    defaite:function(){[392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.22,'sine',0.12);},i*120);});},
+    piece:function(){tone(988,0.08,'triangle',0.12,1400);},
+    tick:function(){tone(300,0.03,'square',0.05);},
+    estMuet:function(){return muet;},
+    toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+  };
+})();
+// Bouton mute (à placer dans le header de chaque jeu)
+function initBoutonSon(id){
+  var b=document.getElementById(id);
+  if(!b)return;
+  function maj(){b.textContent=SFX.estMuet()?'🔇':'🔊';}
+  maj();
+  b.addEventListener('click',function(){SFX.toggle();maj();});
+}
+// Confetti simple (petites particules colorées, pour les écrans de victoire)
+function confetti(canvas,ctx,cx,cy){
+  var parts=[];
+  var couleurs=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<24;i++){
+    var a=Math.random()*Math.PI*2,v=2+Math.random()*3;
+    parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,g:0.12,vie:1,col:couleurs[i%couleurs.length],taille:3+Math.random()*3});
+  }
+  return parts;
+}
+function drawConfetti(ctx,parts,dt){
+  for(var i=parts.length-1;i>=0;i--){
+    var p=parts[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vie-=0.018*dt;
+    if(p.vie<=0){parts.splice(i,1);continue;}
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.taille/2,p.y-p.taille/2,p.taille,p.taille);
+    ctx.globalAlpha=1;
+  }
+}
+initBoutonSon("btnSon");
+
+const COLS=17, ROWS=23;
+const cvs=document.getElementById('c'), ctx=cvs.getContext('2d');
+const scoreEl=document.getElementById('score'), bestEl=document.getElementById('best');
+const msg=document.getElementById('msg');
+const fin=document.getElementById('fin'), finTitre=document.getElementById('finTitre'),
+      finTexte=document.getElementById('finTexte');
+let DPR=1, CELL=18, PX=0, PY=0, BW=0, BH=0;
+let confettiParts=[];
+
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  const r=cvs.parentElement.getBoundingClientRect();
+  const availW=r.width-24, availH=r.height-8;
+  CELL=Math.floor(Math.min(availW/COLS, availH/ROWS));
+  BW=CELL*COLS; BH=CELL*ROWS;
+  cvs.style.width=BW+'px'; cvs.style.height=BH+'px';
+  cvs.width=BW*DPR; cvs.height=BH*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize',resize);
+
+// ---- État ----
+let snake, dir, nextDir, food, score=0, best=0, alive=true, started=false;
+let stepMs=170, lastStep=0, blink=0;
+
+function reset(){
+  const cx=Math.floor(COLS/2), cy=Math.floor(ROWS/2);
+  snake=[{x:cx,y:cy},{x:cx,y:cy+1},{x:cx,y:cy+2}];
+  dir={x:0,y:-1}; nextDir=dir;
+  score=0; stepMs=170; alive=true; started=false;
+  scoreEl.textContent='0';
+  placeFood();
+  msg.textContent="Glisse le doigt pour diriger le serpent";
+}
+
+function placeFood(){
+  while(true){
+    const f={x:Math.floor(Math.random()*COLS), y:Math.floor(Math.random()*ROWS)};
+    if(!snake.some(s=>s.x===f.x&&s.y===f.y)){food=f;return;}
+  }
+}
+
+// ---- Logique ----
+function step(){
+  dir=nextDir;
+  const head={x:snake[0].x+dir.x, y:snake[0].y+dir.y};
+  // murs = mort (classique Nokia)
+  if(head.x<0||head.x>=COLS||head.y<0||head.y>=ROWS||
+     snake.some(s=>s.x===head.x&&s.y===head.y)){
+    gameOver();return;
+  }
+  snake.unshift(head);
+  if(head.x===food.x&&head.y===food.y){
+    score+=10;
+    scoreEl.textContent=score;
+    SFX.piece();
+    if(score%50===0){ stepMs=Math.max(85,stepMs-14); msg.textContent="🔥 Ça accélère !"; }
+    placeFood();
+  }else{
+    snake.pop();
+  }
+}
+
+function gameOver(){
+  alive=false;
+  if(score>best){best=score;bestEl.textContent=best;}
+  finTitre.textContent=score+" pts";
+  finTexte.textContent = score>best-1&&score>=100 ? "Nouveau record ! Le classement hebdo t'attend."
+                   : score>=60 ? "Beau parcours ! Encore quelques mangues et tu montes au classement."
+                   : "Le serpent a mordu la poussière... Rejoue et bats ton record !";
+  if(score>=100){SFX.victoire();confettiParts=confetti(cvs,ctx,BW/2,BH*0.4);}else SFX.defaite();
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Serpent',score:Math.round(score*2.5),victoire:score>=100},'*');}catch(e){}}
+  fin.style.display='flex';
+}
+
+document.getElementById('rejouer').addEventListener('click',()=>{
+  fin.style.display='none';confettiParts=[];reset();
+});
+
+// ---- Rendu ----
+function draw(){
+  // plateau vert foncé, damier subtil
+  ctx.fillStyle='#0A5C2D';
+  ctx.fillRect(0,0,BW,BH);
+  ctx.fillStyle='rgba(255,255,255,0.035)';
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
+    if((x+y)%2===0) ctx.fillRect(x*CELL,y*CELL,CELL,CELL);
+  }
+  // bordure
+  ctx.strokeStyle='rgba(245,194,27,.35)';ctx.lineWidth=2;
+  ctx.strokeRect(1,1,BW-2,BH-2);
+
+  // mangue
+  blink+=0.15;
+  const fx=food.x*CELL+CELL/2, fy=food.y*CELL+CELL/2;
+  const fr=CELL*0.38*(1+Math.sin(blink)*0.08);
+  ctx.fillStyle='#F28C1B';
+  ctx.beginPath();ctx.ellipse(fx,fy,fr,fr*0.85,0.5,0,7);ctx.fill();
+  ctx.fillStyle='#E32219';
+  ctx.beginPath();ctx.ellipse(fx-fr*0.25,fy-fr*0.2,fr*0.5,fr*0.4,0.5,0,7);ctx.fill();
+  ctx.strokeStyle='#0E7A3C';ctx.lineWidth=2;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(fx+fr*0.3,fy-fr*0.7);ctx.lineTo(fx+fr*0.55,fy-fr*1.1);ctx.stroke();
+
+  // serpent
+  for(let i=snake.length-1;i>=0;i--){
+    const s=snake[i];
+    const pad=i===0?1:2;
+    const t=i/snake.length;
+    ctx.fillStyle=i===0?'#F5C21B':`rgb(${245-t*60},${194-t*50},${27})`;
+    r(s.x*CELL+pad, s.y*CELL+pad, CELL-pad*2, CELL-pad*2, i===0?6:4);
+  }
+  // yeux de la tête
+  const h=snake[0];
+  ctx.fillStyle='#12130F';
+  const ex=h.x*CELL+CELL/2, ey=h.y*CELL+CELL/2;
+  const ox=dir.y!==0?CELL*0.2:0, oy=dir.x!==0?CELL*0.2:0;
+  const fx2=dir.x*CELL*0.15, fy2=dir.y*CELL*0.15;
+  ctx.beginPath();ctx.arc(ex-ox+fx2,ey-oy+fy2,CELL*0.09,0,7);ctx.fill();
+  ctx.beginPath();ctx.arc(ex+ox+fx2,ey+oy+fy2,CELL*0.09,0,7);ctx.fill();
+}
+function r(x,y,w,h,rad){
+  ctx.beginPath();ctx.roundRect(x,y,w,h,rad);ctx.fill();
+}
+
+// ---- Entrées : swipe + clavier ----
+let touchStart=null;
+cvs.addEventListener('touchstart',e=>{
+  touchStart={x:e.touches[0].clientX,y:e.touches[0].clientY};
+  e.preventDefault();
+},{passive:false});
+cvs.addEventListener('touchmove',e=>{
+  if(!touchStart)return;
+  const dx=e.touches[0].clientX-touchStart.x;
+  const dy=e.touches[0].clientY-touchStart.y;
+  if(Math.abs(dx)<18&&Math.abs(dy)<18)return;
+  turn(Math.abs(dx)>Math.abs(dy)?{x:Math.sign(dx),y:0}:{x:0,y:Math.sign(dy)});
+  touchStart={x:e.touches[0].clientX,y:e.touches[0].clientY};
+  e.preventDefault();
+},{passive:false});
+cvs.addEventListener('touchend',()=>{touchStart=null;});
+window.addEventListener('keydown',e=>{
+  const m={ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0}};
+  if(m[e.key]){turn(m[e.key]);e.preventDefault();}
+});
+function turn(d){
+  if(!alive)return;
+  if(d.x===-dir.x&&d.y===-dir.y)return; // pas de demi-tour
+  nextDir=d;
+  if(!started){started=true;msg.textContent="Attrape les mangues 🥭";}
+}
+
+// ---- Boucle ----
+let lastFrame=0;
+function loop(now){
+  if(alive&&started&&now-lastStep>stepMs){lastStep=now;step();}
+  draw();
+  const dt=lastFrame?Math.min(2.5,(now-lastFrame)/16.7):1;lastFrame=now;
+  if(confettiParts.length)drawConfetti(ctx,confettiParts,dt);
+  requestAnimationFrame(loop);
+}
+resize();reset();
+window.__serpent={state:()=>({score,alive,confettiN:confettiParts.length,muet:SFX.estMuet()}),
+  forcerFin:(s)=>{score=s;gameOver();}};
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

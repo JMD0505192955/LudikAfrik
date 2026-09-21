@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Contes Faso</title>
+<style>
+  :root{--or:#F5C21B;--vert:#0E7A3C;--rouge:#E32219;--craie:#FAF7EF;
+        --nuit:#151021;--nuit2:#1e1730;--carte:#241b38;--bord:#3a2c52;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:var(--nuit);font-family:"Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;
+    user-select:none;-webkit-user-select:none;}
+  #app{width:100%;max-width:430px;flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
+  #contenu{flex:1;overflow-y:auto;padding-bottom:70px;}
+
+  /* ---------- bannière ---------- */
+  #banniere{margin:10px 14px 12px;height:112px;border-radius:16px;overflow:hidden;position:relative;
+    box-shadow:0 4px 18px rgba(0,0,0,.55);}
+  #banniere canvas{display:block;width:100%;height:100%;}
+  #banniere .titre{position:absolute;left:14px;bottom:11px;z-index:2;}
+  #banniere h1{font-family:"Arial Black";font-size:22px;letter-spacing:1px;line-height:1;
+    text-shadow:0 2px 10px rgba(0,0,0,.9);}
+  #banniere h1 span{color:var(--or);}
+  #banniere p{font-size:10px;letter-spacing:2.5px;color:#d8c9e8;margin-top:5px;
+    text-shadow:0 1px 5px rgba(0,0,0,.9);}
+
+  /* ---------- série ---------- */
+  #serieBox{margin:0 14px 14px;background:var(--carte);border:1px solid var(--bord);
+    border-radius:14px;padding:11px 13px;}
+  #serieHaut{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;}
+  #serieTxt{font-size:12px;color:#c9bcd8;}
+  #serieTxt b{color:var(--or);font-family:"Arial Black";}
+  #serieBar{display:flex;gap:4px;}
+  .jour{flex:1;height:24px;border-radius:6px;background:#1c142c;border:1.5px solid #33254a;
+    display:flex;align-items:center;justify-content:center;font-size:9.5px;color:#7d6f92;}
+  .jour.fait{background:rgba(245,194,27,.18);border-color:var(--or);color:var(--or);}
+  .jour.auj{background:var(--or);border-color:var(--or);color:var(--nuit);font-weight:bold;}
+
+  /* ---------- conte du soir ---------- */
+  h3{font-family:"Arial Black";font-size:12px;letter-spacing:2px;color:#c9bcd8;
+    margin:18px 14px 10px;text-transform:uppercase;display:flex;align-items:center;gap:9px;}
+  h3::after{content:"";flex:1;height:1px;
+    background:linear-gradient(to right,rgba(245,194,27,.35),rgba(245,194,27,0));}
+  #vedette{margin:0 14px 4px;border-radius:16px;overflow:hidden;position:relative;
+    background:linear-gradient(150deg,#3a2a5c,#1c1430);border:1px solid rgba(245,194,27,.25);
+    box-shadow:0 4px 16px rgba(0,0,0,.5);}
+  #vedette .vig{width:100%;height:132px;position:relative;}
+  #vedette canvas{display:block;width:100%;height:100%;}
+  #vedette .badge{position:absolute;top:10px;left:10px;background:rgba(21,16,33,.8);
+    border:1px solid var(--or);color:var(--or);border-radius:999px;padding:4px 11px;
+    font-size:9.5px;letter-spacing:1.5px;font-weight:bold;z-index:2;}
+  #vedette .duree{position:absolute;top:10px;right:10px;background:rgba(21,16,33,.8);
+    border-radius:999px;padding:4px 10px;font-size:10px;color:#d8c9e8;z-index:2;}
+  #vedette .txt{padding:12px 14px 14px;}
+  #vedette .nom{font-family:"Arial Black";font-size:17px;margin-bottom:4px;}
+  #vedette .desc{font-size:12.5px;color:#c9bcd8;line-height:1.5;margin-bottom:11px;}
+  #vedette .go{background:var(--or);color:var(--nuit);border:none;border-radius:999px;
+    padding:11px 24px;font-family:"Arial Black";font-size:13px;width:100%;}
+
+  /* ---------- filtres ---------- */
+  #filtres{display:flex;gap:7px;padding:0 14px 4px;overflow-x:auto;scrollbar-width:none;}
+  #filtres::-webkit-scrollbar{display:none;}
+  .filtre{background:var(--carte);border:1.5px solid var(--bord);color:#a496b8;
+    border-radius:999px;padding:7px 14px;font-size:11.5px;font-family:inherit;white-space:nowrap;flex-shrink:0;}
+  .filtre.sel{background:var(--or);border-color:var(--or);color:var(--nuit);font-weight:bold;}
+
+  /* ---------- grille ---------- */
+  .grille{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:0 14px;}
+  .carte{background:linear-gradient(160deg,#2a2040 0%,#1a1328 100%);border-radius:14px;
+    border:1px solid rgba(245,194,27,.13);overflow:hidden;position:relative;
+    box-shadow:0 2px 8px rgba(0,0,0,.45);transition:transform .12s,border-color .12s;}
+  .carte:active{transform:scale(.96);border-color:rgba(245,194,27,.4);}
+  .carte .vig{width:100%;height:96px;position:relative;}
+  .carte canvas{display:block;width:100%;height:100%;}
+  .carte .lu{position:absolute;top:7px;right:7px;background:rgba(14,122,60,.9);
+    border-radius:999px;width:20px;height:20px;display:flex;align-items:center;
+    justify-content:center;font-size:11px;z-index:2;}
+  .carte .duree{position:absolute;bottom:7px;right:7px;background:rgba(21,16,33,.82);
+    border-radius:999px;padding:2px 7px;font-size:9px;color:#d8c9e8;z-index:2;}
+  .carte .txt{padding:9px 10px 11px;}
+  .carte .nom{font-family:"Arial Black";font-size:12.5px;margin-bottom:3px;line-height:1.25;}
+  .carte .cat{font-size:9.5px;color:#8d7fa4;letter-spacing:.5px;}
+  #vide{text-align:center;color:#7d6f92;font-size:12.5px;padding:30px 20px;display:none;}
+
+  /* ---------- lecteur ---------- */
+  #lecteur{position:absolute;inset:0;background:var(--nuit);z-index:40;display:none;
+    flex-direction:column;}
+  #lecTop{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--bord);}
+  #lecRetour{background:none;border:1px solid var(--bord);color:var(--craie);border-radius:999px;
+    width:32px;height:32px;font-size:15px;flex-shrink:0;}
+  #lecTitre{font-family:"Arial Black";font-size:14px;flex:1;line-height:1.2;}
+  #lecTitre small{display:block;font-family:Arial;font-weight:400;font-size:9.5px;
+    color:#8d7fa4;margin-top:2px;letter-spacing:1px;}
+  #lecCorps{flex:1;overflow-y:auto;padding:14px;}
+  /* encart média */
+  #media{width:100%;border-radius:14px;overflow:hidden;background:#0f0b19;
+    border:1px solid var(--bord);margin-bottom:14px;position:relative;}
+  #media .scene{width:100%;height:180px;position:relative;}
+  #media canvas{display:block;width:100%;height:100%;}
+  #media video{display:block;width:100%;max-height:230px;background:#000;}
+  #ctrl{display:flex;align-items:center;gap:11px;padding:10px 12px;background:rgba(21,16,33,.85);}
+  #btnPlay{background:var(--or);color:var(--nuit);border:none;border-radius:50%;
+    width:42px;height:42px;font-size:17px;flex-shrink:0;}
+  #ctrlInfo{flex:1;}
+  #ctrlNom{font-size:11.5px;color:#e8dcf0;margin-bottom:4px;}
+  #ctrlBarre{height:5px;background:#33254a;border-radius:99px;overflow:hidden;}
+  #ctrlProg{height:100%;background:var(--or);width:0%;transition:width .3s;}
+  #ctrlTemps{font-size:10px;color:#8d7fa4;min-width:38px;text-align:right;}
+  #avisMedia{font-size:10.5px;color:#8d7fa4;padding:8px 12px;line-height:1.5;
+    background:rgba(245,194,27,.06);border-top:1px solid rgba(245,194,27,.15);}
+  /* texte du conte */
+  #texte{font-size:14px;line-height:1.7;color:#e8dcf0;}
+  #texte p{margin-bottom:13px;}
+  #texte b{color:var(--or);}
+  .morale{background:rgba(245,194,27,.10);border-left:3px solid var(--or);
+    border-radius:0 10px 10px 0;padding:13px 15px;font-style:italic;font-size:13.5px;
+    color:#e8dcc0;margin:16px 0;line-height:1.65;}
+  #lecBas{padding:12px 14px 16px;border-top:1px solid var(--bord);display:flex;flex-direction:column;gap:8px;}
+  .btnP{background:var(--or);color:var(--nuit);border:none;border-radius:999px;
+    padding:13px;font-family:"Arial Black";font-size:13.5px;width:100%;}
+  .btnS{background:none;border:1px solid var(--bord);color:#c9bcd8;border-radius:999px;
+    padding:11px;font-size:12.5px;font-family:inherit;width:100%;}
+  .btnS.wa{border-color:#25D366;color:#25D366;}
+
+  /* ---------- barre du bas ---------- */
+  #nav{position:absolute;bottom:0;left:0;right:0;height:60px;background:rgba(21,16,33,.96);
+    border-top:1px solid var(--bord);display:flex;align-items:center;justify-content:space-around;
+    backdrop-filter:blur(8px);z-index:30;}
+  .navBtn{display:flex;flex-direction:column;align-items:center;gap:3px;
+    background:none;border:none;color:#7d6f92;font-family:inherit;font-size:9px;letter-spacing:.5px;}
+  .navBtn .ic{font-size:19px;}
+  .navBtn.sel{color:var(--or);}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="contenu">
+    <div id="banniere">
+      <canvas id="cvBan"></canvas>
+      <div class="titre">
+        <h1>CONTES <span>FASO</span></h1>
+        <p>LA VEILLÉE SOUS LES ÉTOILES</p>
+      </div>
+    </div>
+
+    <div id="serieBox">
+      <div id="serieHaut">
+        <div id="serieTxt">🔥 <b id="serieN">0</b> soir<span id="serieS"></span> de suite</div>
+        <div id="serieTxt2" style="font-size:11.5px;color:#8d7fa4"><span id="nbLus">0</span>/<span id="nbTot">0</span> contes écoutés</div>
+      </div>
+      <div id="serieBar"></div>
+    </div>
+
+    <h3>🌙 Le conte du soir</h3>
+    <div id="vedette"></div>
+
+    <h3>📚 La bibliothèque</h3>
+    <div id="filtres"></div>
+    <div class="grille" id="grille"></div>
+    <div id="vide">Aucun conte dans cette catégorie pour le moment.</div>
+    <div style="height:20px"></div>
+  </div>
+
+  <div id="lecteur">
+    <div id="lecTop">
+      <button id="lecRetour">←</button>
+      <div id="lecTitre">Titre<small>CATÉGORIE</small></div>
+    </div>
+    <div id="lecCorps">
+      <div id="media">
+        <div class="scene"><canvas id="cvLec"></canvas></div>
+        <div id="ctrl">
+          <button id="btnPlay">▶</button>
+          <div id="ctrlInfo">
+            <div id="ctrlNom">Écouter le conte</div>
+            <div id="ctrlBarre"><div id="ctrlProg"></div></div>
+          </div>
+          <div id="ctrlTemps">0:00</div>
+        </div>
+        <div id="avisMedia">🎙️ Démo : le conte est lu par la voix du navigateur. Avec le service complet, un conteur professionnel enregistre chaque histoire.</div>
+      </div>
+      <div id="texte"></div>
+    </div>
+    <div id="lecBas">
+      <button class="btnP" id="btnQuiz">RÉPONDRE AU QUIZ →</button>
+      <button class="btnS wa" id="btnPartager">📤 Partager ce conte</button>
+    </div>
+  </div>
+
+  <div id="nav">
+    <button class="navBtn sel" data-n="tous"><span class="ic">📚</span>Bibliothèque</button>
+    <button class="navBtn" data-n="alire"><span class="ic">🌙</span>À écouter</button>
+    <button class="navBtn" data-n="lus"><span class="ic">✅</span>Écoutés</button>
+  </div>
+</div>
+<script>
+(function(){
+"use strict";
+var $=function(i){return document.getElementById(i);};
+
+// ================= CATALOGUE =================
+var CATEGORIES=[
+  {id:'tous',    nom:'Tous'},
+  {id:'animaux', nom:'🦊 Animaux'},
+  {id:'sagesse', nom:'🧠 Sagesse'},
+  {id:'mossi',   nom:'🏛️ Mossi'},
+  {id:'dioula',  nom:'🎭 Dioula'},
+];
+var CONTES=[
+  {id:'lievre', titre:"Le Lièvre et l'Hyène", cat:'animaux', duree:'6 min', decor:'savane',
+   resume:"En pleine saison sèche, Hyène affamée croise Lièvre qui mange tranquillement. Une ruse va lui coûter cher.",
+   morale:"La ruse du faible vaut mieux que la force de l'orgueilleux. Mais celui qui trompe trop souvent finit seul.",
+   texte:[
+     "Il y a très longtemps, la saison sèche s'était installée sur la brousse. Les puits étaient à sec, l'herbe jaunie, et les animaux avaient faim.",
+     "<b>Hyène</b> se traînait sous le soleil, le ventre creux. Elle croisa <b>Lièvre</b>, assis à l'ombre d'un karité, en train de croquer quelque chose de bon.",
+     "— Lièvre ! gronda Hyène. Où as-tu trouvé à manger ? Dis-le-moi, ou je te croque !",
+     "— Grande Hyène, dit Lièvre en s'inclinant, j'ai trouvé un champ d'arachides. Mais il appartient au vieux Sanou, et il le garde jour et nuit.",
+     "— Le vieux dort à partir de minuit, ajouta Lièvre. Va-y à ce moment-là. Mais il faut <b>creuser un trou sous la clôture</b> pour entrer. Et surtout… ne mange pas trop !",
+     "À minuit, Hyène creusa son trou et se glissa dans le champ. Les arachides étaient grasses et sucrées. Elle mangea… et mangea… et mangea encore.",
+     "Quand le coq chanta, Hyène voulut ressortir. Mais son ventre était devenu si gros qu'il <b>resta coincé dans le trou</b> !",
+     "Au petit matin, le vieux Sanou la trouva, le museau couvert de terre. Il prit son bâton et lui donna une leçon dont elle se souvient encore.",
+     "Depuis ce jour, dit-on, <b>Hyène marche le dos courbé</b>. Et quand elle rit la nuit, c'est de rage contre Lièvre.",
+     "Et Lièvre ? Il retourna sous son karité, où il avait caché sa vraie réserve. Car le champ d'arachides… <b>il ne l'avait jamais visité</b>."
+   ]},
+  {id:'tortue', titre:"La Tortue et l'Oiseau", cat:'animaux', duree:'5 min', decor:'fleuve',
+   resume:"Tortue rêve de voir le ciel. Oiseau accepte de l'emmener, à une condition qu'elle ne tiendra pas.",
+   morale:"Celui qui ne sait pas se taire perd ce qu'on lui a offert.",
+   texte:[
+     "Tortue vivait au bord du fleuve. Chaque jour, elle regardait les oiseaux passer au-dessus d'elle et soupirait.",
+     "— Ah, si je pouvais voir le monde d'en haut, ne serait-ce qu'une fois…",
+     "Un jour, <b>Calao</b> l'entendit. — Je peux t'emmener, dit-il. Mords ce bâton, mes frères et moi le porterons. Mais attention : <b>ne parle pas</b>, ou tu tomberas.",
+     "Tortue mordit le bâton. Les oiseaux s'élevèrent. Elle vit les champs, le fleuve qui serpentait, les cases minuscules.",
+     "En bas, les enfants du village levèrent la tête. — Regardez ! Une tortue qui vole ! Qui a eu cette idée ?",
+     "— C'EST MOI ! cria Tortue, fière.",
+     "Elle avait ouvert la bouche. Elle tomba de très haut et sa carapace se fendit en morceaux.",
+     "Les animaux la recollèrent patiemment, morceau par morceau. C'est pourquoi, <b>encore aujourd'hui, la carapace de la tortue est faite de plaques</b>."
+   ]},
+  {id:'cameleon', titre:"Le Caméléon et le Serpent", cat:'animaux', duree:'5 min', decor:'foret',
+   resume:"Serpent se moque de la lenteur de Caméléon. Une course va décider lequel des deux avait raison.",
+   morale:"Qui avance lentement mais sans jamais s'arrêter arrive avant celui qui court et se repose.",
+   texte:[
+     "Serpent glissait vite entre les herbes. Il croisa Caméléon qui avançait patte après patte, en balançant la tête.",
+     "— Tu es d'une lenteur ! siffla Serpent. Moi, je traverse la brousse en une matinée.",
+     "— La vitesse n'est pas tout, répondit Caméléon sans s'arrêter.",
+     "— Prouve-le ! Course jusqu'au grand baobab, demain à l'aube.",
+     "Au matin, Serpent partit comme une flèche et disparut. Caméléon se mit en route, une patte, puis l'autre.",
+     "À midi, le soleil brûlait. Serpent, épuisé, s'allongea à l'ombre. <b>Juste un instant</b>, pensa-t-il.",
+     "Quand il rouvrit les yeux, le soir tombait. Il fonça jusqu'au baobab.",
+     "Caméléon y était déjà, tranquille, en train de changer de couleur pour la nuit.",
+     "— Comment ? Tu es si lent !",
+     "— Lent, oui, dit Caméléon. Mais <b>je ne me suis pas arrêté</b>."
+   ]},
+  {id:'conseils', titre:"Les Trois Conseils du Vieux", cat:'sagesse', duree:'7 min', decor:'village',
+   resume:"Un jeune homme part travailler au loin. Le vieux lui donne trois conseils qu'il paiera cher.",
+   morale:"Un bon conseil coûte peu à écouter et beaucoup à ignorer.",
+   texte:[
+     "Un jeune homme voulut quitter le village pour aller travailler dans la grande ville.",
+     "Avant son départ, le vieux du village l'appela. — J'ai trois conseils pour toi. Écoute-les bien.",
+     "— <b>Premier conseil</b> : ne quitte jamais la route principale pour un raccourci.",
+     "— <b>Deuxième conseil</b> : ne loge pas chez quelqu'un qui parle mal de sa femme.",
+     "— <b>Troisième conseil</b> : la colère du soir, garde-la jusqu'au matin.",
+     "En chemin, des voyageurs lui proposèrent un raccourci par la forêt. Il refusa. Le soir, on apprit que les brigands les avaient attaqués.",
+     "Plus loin, un homme lui offrit l'hospitalité en insultant son épouse. Il refusa poliment. Cette nuit-là, l'homme tua un voyageur dans une dispute.",
+     "Après des années, il revint riche. En arrivant chez lui, il vit par la fenêtre sa femme parler à un jeune homme, la main sur son épaule.",
+     "La colère monta. Il porta la main à son couteau… puis se souvint du <b>troisième conseil</b>.",
+     "Au matin, sa femme lui présenta le jeune homme. — Voici ton fils. Il est né après ton départ.",
+     "Le jeune homme tomba à genoux et pleura. Trois conseils l'avaient sauvé trois fois."
+   ]},
+  {id:'puits', titre:"Le Puits de la Vérité", cat:'sagesse', duree:'6 min', decor:'nuit',
+   resume:"Deux frères se disputent un héritage. Le chef les envoie au puits qui, dit-on, ne ment jamais.",
+   morale:"La vérité n'a pas besoin de témoin : celui qui ment se dénonce lui-même.",
+   texte:[
+     "À la mort de leur père, deux frères se disputèrent le troupeau. Chacun jurait que le vieux le lui avait promis.",
+     "Le chef du village les écouta longtemps, puis dit : — Allez au <b>puits de la vérité</b>. On dit qu'il engloutit les menteurs.",
+     "Le lendemain, les deux frères s'y rendirent devant tout le village.",
+     "L'aîné s'avança d'un pas ferme, se pencha sur le puits et cria : — Père m'a promis le troupeau !",
+     "Rien ne se passa. Il se retourna, triomphant.",
+     "Le cadet s'approcha à son tour. Mais arrivé au bord, il s'arrêta. Ses jambes tremblaient.",
+     "Il recula. — Je… je ne peux pas.",
+     "Le chef sourit. — Le puits n'a rien de magique, mes enfants. C'est de l'eau, rien de plus.",
+     "— Mais <b>celui qui craint de parler devant lui a déjà répondu</b>."
+   ]},
+  {id:'naba', titre:"Naba Zombré et le Mendiant", cat:'mossi', duree:'6 min', decor:'palais',
+   resume:"Un empereur mossi déguisé en mendiant découvre qui, dans son royaume, mérite vraiment sa confiance.",
+   morale:"On connaît un homme non pas à ce qu'il dit au puissant, mais à ce qu'il fait pour celui qui n'a rien.",
+   texte:[
+     "Naba Zombré régnait sur le royaume mossi. On disait de lui qu'il était juste, mais qu'il doutait des hommes.",
+     "Un soir, il ôta ses habits d'empereur, se couvrit de haillons et sortit du palais sans escorte.",
+     "Il frappa à la porte d'un riche marchand. — Un peu d'eau, je vous prie.",
+     "— Va-t'en, mendiant ! Tu vas salir ma cour.",
+     "Il frappa chez un notable. — Une place près du feu pour la nuit ?",
+     "— Les mendiants dorment dehors. C'est ainsi.",
+     "Enfin il arriva devant une petite case. Une femme âgée pilait du mil.",
+     "— Grand-mère, j'ai faim.",
+     "Elle le regarda, posa son pilon et lui tendit son propre plat. — Mange, mon fils. Je mangerai demain.",
+     "Le lendemain, les tambours résonnèrent. Les gardes vinrent chercher la vieille femme.",
+     "Devant toute la cour, Naba Zombré la fit asseoir à sa droite. — <b>Voici celle qui a nourri l'empereur</b> quand il n'était rien."
+   ]},
+  {id:'etoiles', titre:"L'Enfant qui comptait les Étoiles", cat:'dioula', duree:'5 min', decor:'etoiles',
+   resume:"Un enfant passe ses nuits à compter les étoiles. Les adultes se moquent, jusqu'au jour de la sécheresse.",
+   morale:"Ce que les autres appellent perdre son temps est parfois la graine d'un savoir.",
+   texte:[
+     "Dans un village dioula vivait un enfant qui, chaque nuit, s'asseyait dehors et comptait les étoiles.",
+     "— Tu perds ton temps ! disaient les grands. Va garder les chèvres comme les autres.",
+     "Mais l'enfant continuait. Il avait remarqué que certaines étoiles se déplaçaient au fil des saisons.",
+     "Une année, la pluie ne vint pas. Puis une deuxième. Les greniers se vidèrent.",
+     "Les anciens se réunirent. — Faut-il partir vers le sud ? Personne ne savait.",
+     "L'enfant s'approcha timidement. — Les <b>sept sœurs</b> se sont levées avant l'aube. Chez nous, c'est le signe.",
+     "— Quel signe ? demanda le chef.",
+     "— Grand-mère me l'a dit avant de mourir : <b>quand elles se lèvent tôt, la pluie vient dans une lune</b>.",
+     "Les anciens hésitèrent, puis décidèrent d'attendre. Vingt-neuf jours plus tard, le ciel creva.",
+     "Depuis, dans ce village, on écoute les enfants qui regardent le ciel."
+   ]},
+];
+var QUIZ={
+  lievre:[
+    {q:"Pourquoi Hyène cherchait-elle à manger ?",opts:["C'était la saison sèche","Elle préparait une fête","Elle nourrissait ses petits"],bon:0},
+    {q:"Quel conseil Lièvre lui a-t-il donné ?",opts:["De courir vite","De ne pas trop manger","De partager avec lui"],bon:1},
+    {q:"Pourquoi est-elle restée coincée ?",opts:["Le trou s'est refermé","Le vieux l'a attrapée","Son ventre était trop plein"],bon:2},
+    {q:"Qu'explique ce conte ?",opts:["Pourquoi Hyène a le dos courbé","Pourquoi le lièvre court vite","Pourquoi il pleut en juillet"],bon:0}
+  ],
+  tortue:[
+    {q:"Que voulait Tortue ?",opts:["Manger des fruits","Voir le monde d'en haut","Traverser le fleuve"],bon:1},
+    {q:"Quelle condition Calao a-t-il posée ?",opts:["Ne pas parler","Ne pas regarder en bas","Payer trois cauris"],bon:0},
+    {q:"Pourquoi Tortue est-elle tombée ?",opts:["Le bâton a cassé","Elle a crié","Un vent l'a poussée"],bon:1},
+    {q:"Qu'explique ce conte ?",opts:["Pourquoi les oiseaux volent","Pourquoi la carapace a des plaques","Pourquoi le fleuve serpente"],bon:1}
+  ],
+  cameleon:[
+    {q:"De quoi Serpent se moquait-il ?",opts:["De la couleur de Caméléon","De sa lenteur","De sa petite taille"],bon:1},
+    {q:"Où devaient-ils arriver ?",opts:["Au grand baobab","Au fleuve","Au village"],bon:0},
+    {q:"Pourquoi Serpent a-t-il perdu ?",opts:["Il s'est perdu","Il s'est endormi","Il a triché"],bon:1},
+    {q:"Quelle est la leçon ?",opts:["La force gagne toujours","La constance vaut mieux que la vitesse","Il faut courir tôt le matin"],bon:1}
+  ],
+  conseils:[
+    {q:"Combien de conseils le vieux a-t-il donnés ?",opts:["Deux","Trois","Cinq"],bon:1},
+    {q:"Quel était le premier conseil ?",opts:["Ne pas prendre de raccourci","Ne pas voyager la nuit","Ne pas prêter d'argent"],bon:0},
+    {q:"Qui était le jeune homme avec sa femme ?",opts:["Son voisin","Son fils","Un voleur"],bon:1},
+    {q:"Quel conseil l'a sauvé à la fin ?",opts:["Le premier","Le deuxième","Le troisième"],bon:2}
+  ],
+  puits:[
+    {q:"Que se disputaient les deux frères ?",opts:["Un champ","Le troupeau","Une maison"],bon:1},
+    {q:"Où le chef les a-t-il envoyés ?",opts:["Au puits de la vérité","Chez le griot","Au marché"],bon:0},
+    {q:"Qu'a fait le cadet au bord du puits ?",opts:["Il a crié fort","Il a reculé","Il est tombé dedans"],bon:1},
+    {q:"Le puits était-il magique ?",opts:["Oui","Non, c'était de l'eau","Personne ne sait"],bon:1}
+  ],
+  naba:[
+    {q:"Comment Naba Zombré s'est-il déguisé ?",opts:["En marchand","En mendiant","En chasseur"],bon:1},
+    {q:"Qui l'a nourri ?",opts:["Un riche marchand","Un notable","Une vieille femme"],bon:2},
+    {q:"Que lui a-t-elle donné ?",opts:["Son propre plat","De l'eau","Trois cauris"],bon:0},
+    {q:"Qu'a fait l'empereur le lendemain ?",opts:["Il l'a assise à sa droite","Il l'a oubliée","Il a puni le marchand"],bon:0}
+  ],
+  etoiles:[
+    {q:"Que faisait l'enfant chaque nuit ?",opts:["Il gardait les chèvres","Il comptait les étoiles","Il jouait du tam-tam"],bon:1},
+    {q:"Quel problème a frappé le village ?",opts:["Une inondation","La sécheresse","Une maladie"],bon:1},
+    {q:"Quel signe l'enfant a-t-il reconnu ?",opts:["Les sept sœurs levées tôt","Le vol des oiseaux","La couleur du ciel"],bon:0},
+    {q:"Combien de jours après la pluie est-elle venue ?",opts:["Sept","Vingt-neuf","Cent"],bon:1}
+  ]
+};
+
+// ================= ÉTAT =================
+var lus=[], serie=0, dernierJour=null, filtre='tous', vue='tous', conteAct=null;
+try{
+  lus=JSON.parse(localStorage.getItem('fasocontes_lus')||'[]');
+  serie=parseInt(localStorage.getItem('fasocontes_serie')||'0',10)||0;
+  dernierJour=localStorage.getItem('fasocontes_dernier')||null;
+}catch(e){}
+function auj(){var d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
+// le conte du soir : dépend du jour, pour que chacun ait le même
+function conteDuSoir(){
+  var d=new Date();
+  var n=Math.floor((d-new Date(d.getFullYear(),0,0))/86400000);
+  return CONTES[n%CONTES.length];
+}
+
+// ================= DÉCORS =================
+var PAL={
+  savane:{ciel:['#e8a850','#f0c880','#e8d8a8'],sol:'#b08850',accent:'#8a9a48',astre:'#fff0b0',ay:.30,et:0},
+  fleuve:{ciel:['#5aa0c8','#9ad0dc','#d0e0c8'],sol:'#a89060',accent:'#3a8ab0',astre:'#fff6d0',ay:.26,et:0},
+  foret: {ciel:['#2d5a48','#4a7a5a','#7a9060'],sol:'#5a4a2c',accent:'#2f7a38',astre:'#e0f0b0',ay:.20,et:0},
+  village:{ciel:['#c88a50','#e0b070','#e8d0a0'],sol:'#a87a48',accent:'#8a6a34',astre:'#ffe8b0',ay:.34,et:0},
+  nuit:  {ciel:['#141028','#241c3e','#38284a'],sol:'#3a2c40',accent:'#2a3a30',astre:'#e8e8f0',ay:.22,et:24},
+  palais:{ciel:['#6a4a80','#a86a70','#d09060'],sol:'#8a6a40',accent:'#F5C21B',astre:'#ffe0a0',ay:.30,et:6},
+  etoiles:{ciel:['#0e0a1e','#1a1436','#2a2048'],sol:'#2a2438',accent:'#4a4068',astre:'#fffbe0',ay:.18,et:46},
+};
+function peindre(cv,decor,t){
+  var ctx=cv.getContext('2d');
+  var r=cv.parentElement.getBoundingClientRect();
+  var dpr=Math.min(window.devicePixelRatio||1,2);
+  var W=r.width||300,H=r.height||120;
+  if(cv.width!==W*dpr){cv.width=W*dpr;cv.height=H*dpr;}
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  var P=PAL[decor]||PAL.savane;
+  var g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,P.ciel[0]);g.addColorStop(0.55,P.ciel[1]);g.addColorStop(1,P.ciel[2]);
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // étoiles
+  for(var e=0;e<P.et;e++){
+    var ex=(e*53)%W, ey=(e*29)%Math.round(H*0.55);
+    ctx.globalAlpha=0.45+Math.abs(Math.sin(t*1.4+e))*0.55;
+    ctx.fillStyle='#fff';
+    ctx.beginPath();ctx.arc(ex,ey,1.2,0,7);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  // astre
+  var ax=W*0.76, ay=H*P.ay;
+  var ga=ctx.createRadialGradient(ax,ay,2,ax,ay,H*0.30);
+  ga.addColorStop(0,P.astre);ga.addColorStop(1,'rgba(255,240,180,0)');
+  ctx.fillStyle=ga;ctx.beginPath();ctx.arc(ax,ay,H*0.30,0,7);ctx.fill();
+  ctx.fillStyle=P.astre;
+  ctx.beginPath();ctx.arc(ax,ay,decor==='nuit'||decor==='etoiles'?H*0.055:H*0.075,0,7);ctx.fill();
+  // collines
+  ctx.fillStyle='rgba(0,0,0,.18)';
+  ctx.beginPath();ctx.moveTo(0,H);
+  for(var x=0;x<=W;x+=9){ctx.lineTo(x,H*0.60+Math.sin(x*0.016)*H*0.07+Math.sin(x*0.034)*H*0.035);}
+  ctx.lineTo(W,H);ctx.closePath();ctx.fill();
+  // sol
+  ctx.fillStyle=P.sol;ctx.fillRect(0,H*0.74,W,H*0.26);
+  ctx.fillStyle=P.accent;ctx.fillRect(0,H*0.74,W,Math.max(3,H*0.03));
+  // éléments propres au décor
+  if(decor==='fleuve'){
+    ctx.fillStyle='rgba(58,138,176,.85)';ctx.fillRect(0,H*0.78,W,H*0.22);
+    ctx.strokeStyle='rgba(200,235,245,.4)';ctx.lineWidth=1.6;
+    for(var rf=0;rf<6;rf++){
+      var ry=H*0.80+rf*(H*0.03);
+      ctx.beginPath();ctx.moveTo((rf*47)%W,ry);ctx.lineTo(((rf*47)%W)+22,ry);ctx.stroke();
+    }
+  }
+  if(decor==='village'||decor==='palais'){
+    for(var v=0;v<4;v++){
+      var vx=W*0.12+v*(W*0.22), vh=H*0.16;
+      ctx.fillStyle=decor==='palais'?'#a8804a':'#96703f';
+      ctx.fillRect(vx-H*0.06,H*0.74-vh,H*0.12,vh);
+      ctx.fillStyle='#b8934a';
+      ctx.beginPath();
+      ctx.moveTo(vx-H*0.085,H*0.74-vh);ctx.lineTo(vx,H*0.74-vh-H*0.09);ctx.lineTo(vx+H*0.085,H*0.74-vh);
+      ctx.closePath();ctx.fill();
+    }
+  }
+  if(decor==='savane'||decor==='foret'||decor==='etoiles'){
+    // arbre
+    var tx=W*0.20, ty=H*0.76, e2=H/130;
+    ctx.save();ctx.translate(tx,ty);ctx.scale(e2,e2);
+    ctx.strokeStyle='#6a4a28';ctx.lineWidth=7;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(0,0);ctx.quadraticCurveTo(-4,-24,-2,-44);ctx.stroke();
+    ctx.fillStyle=decor==='etoiles'?'rgba(40,60,45,.9)':'rgba(55,100,48,.92)';
+    [[-18,-52,18],[13,-56,16],[-2,-66,19],[18,-44,13]].forEach(function(b){
+      ctx.beginPath();ctx.arc(b[0],b[1],b[2],0,7);ctx.fill();
+    });
+    ctx.restore();
+  }
+}
+var tAnim=0, canvasActifs=[];
+function boucle(){
+  tAnim+=0.016;
+  canvasActifs.forEach(function(o){peindre(o.cv,o.decor,tAnim);});
+  requestAnimationFrame(boucle);
+}
+
+// ================= RENDU DU PORTAIL =================
+function majSerie(){
+  $('serieN').textContent=serie;
+  $('serieS').textContent=serie>1?'s':'';
+  $('nbLus').textContent=lus.length;
+  $('nbTot').textContent=CONTES.length;
+  var noms=['L','M','M','J','V','S','D'];
+  var j=new Date().getDay(); var idx=(j===0)?6:j-1;
+  var h='';
+  for(var i=0;i<7;i++){
+    var cls='jour';
+    if(i<idx&&i>=idx-serie)cls+=' fait';
+    if(i===idx)cls+=' auj';
+    h+='<div class="'+cls+'">'+noms[i]+'</div>';
+  }
+  $('serieBar').innerHTML=h;
+}
+function rendreVedette(){
+  var C=conteDuSoir();
+  var v=$('vedette');
+  v.innerHTML=
+    '<div class="vig"><canvas></canvas>'+
+      '<div class="badge">🌙 CE SOIR</div>'+
+      '<div class="duree">'+C.duree+'</div>'+
+    '</div>'+
+    '<div class="txt">'+
+      '<div class="nom">'+C.titre+'</div>'+
+      '<div class="desc">'+C.resume+'</div>'+
+      '<button class="go">ÉCOUTER LE CONTE</button>'+
+    '</div>';
+  canvasActifs.push({cv:v.querySelector('canvas'),decor:C.decor});
+  v.querySelector('.go').addEventListener('click',function(){ouvrir(C.id);});
+}
+function rendreFiltres(){
+  $('filtres').innerHTML=CATEGORIES.map(function(c){
+    return '<button class="filtre'+(c.id===filtre?' sel':'')+'" data-f="'+c.id+'">'+c.nom+'</button>';
+  }).join('');
+  document.querySelectorAll('.filtre').forEach(function(b){
+    b.addEventListener('click',function(){filtre=b.dataset.f;rendreFiltres();rendreGrille();});
+  });
+}
+function rendreGrille(){
+  canvasActifs=canvasActifs.filter(function(o){return o.cv.closest('#vedette')||o.cv.closest('#media');});
+  var liste=CONTES.filter(function(c){
+    if(vue==='lus'&&lus.indexOf(c.id)===-1)return false;
+    if(vue==='alire'&&lus.indexOf(c.id)!==-1)return false;
+    if(filtre!=='tous'&&c.cat!==filtre)return false;
+    return true;
+  });
+  $('vide').style.display=liste.length?'none':'block';
+  $('grille').innerHTML=liste.map(function(c){
+    var estLu=lus.indexOf(c.id)!==-1;
+    var catNom=(CATEGORIES.filter(function(x){return x.id===c.cat;})[0]||{}).nom||'';
+    return '<div class="carte" data-id="'+c.id+'">'+
+      '<div class="vig"><canvas></canvas>'+
+        (estLu?'<div class="lu">✓</div>':'')+
+        '<div class="duree">'+c.duree+'</div>'+
+      '</div>'+
+      '<div class="txt"><div class="nom">'+c.titre+'</div>'+
+      '<div class="cat">'+catNom+'</div></div></div>';
+  }).join('');
+  var cartes=document.querySelectorAll('#grille .carte');
+  [].forEach.call(cartes,function(el){
+    var id=el.dataset.id;
+    var C=CONTES.filter(function(x){return x.id===id;})[0];
+    canvasActifs.push({cv:el.querySelector('canvas'),decor:C.decor});
+    el.addEventListener('click',function(){ouvrir(id);});
+  });
+}
+
+// ================= LECTEUR =================
+var lecture=null, progression=0;
+function ouvrir(id){
+  var C=CONTES.filter(function(x){return x.id===id;})[0];
+  if(!C)return;
+  conteAct=C;
+  $('lecTitre').innerHTML=C.titre+'<small>'+((CATEGORIES.filter(function(x){return x.id===C.cat;})[0]||{}).nom||'').toUpperCase()+' · '+C.duree+'</small>';
+  $('texte').innerHTML=C.texte.map(function(p){return '<p>'+p+'</p>';}).join('')+
+    '<div class="morale"><b>La morale :</b><br>'+C.morale+'</div>';
+  canvasActifs=canvasActifs.filter(function(o){return !o.cv.closest('#media');});
+  canvasActifs.push({cv:$('cvLec'),decor:C.decor});
+  $('ctrlNom').textContent='Écouter « '+C.titre+' »';
+  $('ctrlProg').style.width='0%';
+  $('ctrlTemps').textContent='0:00';
+  $('btnPlay').textContent='▶';
+  progression=0;
+  arreterLecture();
+  $('lecteur').style.display='flex';
+  $('lecCorps').scrollTop=0;
+}
+function fermer(){
+  arreterLecture();
+  $('lecteur').style.display='none';
+  rendreGrille();
+}
+$('lecRetour').addEventListener('click',fermer);
+
+// lecture par synthèse vocale (démo) — remplaçable par un fichier audio réel
+function arreterLecture(){
+  if(window.speechSynthesis)window.speechSynthesis.cancel();
+  if(lecture){clearInterval(lecture);lecture=null;}
+  $('btnPlay').textContent='▶';
+}
+function lire(){
+  if(!conteAct)return;
+  if(lecture){arreterLecture();return;}
+  var txt=conteAct.texte.map(function(p){return p.replace(/<[^>]+>/g,'');}).join(' ');
+  var duree=Math.max(40,txt.length*0.055);   // estimation en secondes
+  $('btnPlay').textContent='⏸';
+  if(window.speechSynthesis){
+    try{
+      var u=new SpeechSynthesisUtterance(txt);
+      u.lang='fr-FR';u.rate=0.92;u.pitch=1.0;
+      u.onend=function(){arreterLecture();$('ctrlProg').style.width='100%';};
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
+  var t0=Date.now();
+  lecture=setInterval(function(){
+    var s=(Date.now()-t0)/1000;
+    progression=Math.min(1,s/duree);
+    $('ctrlProg').style.width=(progression*100)+'%';
+    $('ctrlTemps').textContent=Math.floor(s/60)+':'+('0'+Math.floor(s%60)).slice(-2);
+    if(progression>=1)arreterLecture();
+  },400);
+}
+$('btnPlay').addEventListener('click',lire);
+
+// ================= QUIZ =================
+$('btnQuiz').addEventListener('click',function(){
+  if(!conteAct)return;
+  lancerQuiz(conteAct.id);
+});
+function lancerQuiz(id){
+  var Q=QUIZ[id];
+  if(!Q){marquerLu(id);return;}
+  arreterLecture();
+  var idx=0,bons=0;
+  var corps=$('lecCorps');
+  function question(){
+    if(idx>=Q.length){finQuiz();return;}
+    var q=Q[idx];
+    corps.innerHTML=
+      '<div style="font-size:11px;color:#8d7fa4;letter-spacing:1.5px;margin-bottom:9px">QUESTION '+(idx+1)+' / '+Q.length+'</div>'+
+      '<div style="font-family:Arial Black;font-size:16px;line-height:1.4;margin-bottom:15px">'+q.q+'</div>'+
+      '<div id="qopts" style="display:flex;flex-direction:column;gap:9px"></div>';
+    var zo=document.getElementById('qopts');
+    q.opts.forEach(function(o,i){
+      var b=document.createElement('button');
+      b.style.cssText='background:#2a2040;border:1.5px solid #4a3a60;color:#FAF7EF;border-radius:13px;padding:14px 15px;font-size:13.5px;font-family:inherit;text-align:left;line-height:1.4;';
+      b.innerHTML='<span style="color:#F5C21B;font-weight:bold;margin-right:8px">'+String.fromCharCode(65+i)+'.</span>'+o;
+      b.addEventListener('click',function(){
+        [].forEach.call(zo.children,function(x){x.disabled=true;x.style.opacity='.55';});
+        if(i===q.bon){b.style.borderColor='#0E7A3C';b.style.background='rgba(14,122,60,.25)';b.style.opacity='1';bons++;}
+        else{
+          b.style.borderColor='#E32219';b.style.background='rgba(227,34,25,.20)';b.style.opacity='1';
+          zo.children[q.bon].style.borderColor='#0E7A3C';
+          zo.children[q.bon].style.background='rgba(14,122,60,.25)';
+          zo.children[q.bon].style.opacity='1';
+        }
+        idx++;
+        setTimeout(question,1100);
+      });
+      zo.appendChild(b);
+    });
+    corps.scrollTop=0;
+  }
+  function finQuiz(){
+    marquerLu(id);
+    var mention=bons===Q.length?'Sans faute ! Tu as bien écouté.'
+      :bons>=Q.length-1?'Presque parfait !'
+      :bons>=2?'Pas mal, mais réécoute le conte.'
+      :'Il faudra mieux écouter la prochaine fois !';
+    corps.innerHTML=
+      '<div style="text-align:center;padding:20px 0">'+
+      '<div style="font-size:44px;margin-bottom:8px">'+(bons>=Q.length-1?'🌟':'🌙')+'</div>'+
+      '<div style="font-family:Arial Black;font-size:26px;color:#F5C21B;margin-bottom:6px">'+bons+' / '+Q.length+'</div>'+
+      '<p style="font-size:13.5px;color:#c9bcd8;margin-bottom:16px">'+mention+'</p>'+
+      '<div class="morale"><b>La morale :</b><br>'+conteAct.morale+'</div>'+
+      '<p style="font-size:12px;color:#8d7fa4;margin-top:14px">🌙 Reviens demain soir pour un nouveau conte.</p>'+
+      '</div>';
+    $('btnQuiz').textContent='← RETOUR À LA BIBLIOTHÈQUE';
+    $('btnQuiz').onclick=function(){
+      $('btnQuiz').textContent='RÉPONDRE AU QUIZ →';
+      $('btnQuiz').onclick=null;
+      fermer();
+    };
+    if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Contes Faso',
+      score:Math.min(600,bons*90+lus.length*20),victoire:bons>=Q.length-1},'*');}catch(e){}}
+  }
+  question();
+}
+function marquerLu(id){
+  if(lus.indexOf(id)===-1){
+    lus.push(id);
+    try{localStorage.setItem('fasocontes_lus',JSON.stringify(lus));}catch(e){}
+  }
+  var a=auj();
+  if(dernierJour!==a){
+    var h=new Date();h.setDate(h.getDate()-1);
+    var hs=h.getFullYear()+'-'+(h.getMonth()+1)+'-'+h.getDate();
+    serie=(dernierJour===hs)?serie+1:1;
+    dernierJour=a;
+    try{
+      localStorage.setItem('fasocontes_serie',serie);
+      localStorage.setItem('fasocontes_dernier',a);
+    }catch(e){}
+  }
+  majSerie();
+}
+
+// ================= PARTAGE =================
+var LIEN='https://teal-muffin-8e3f01.netlify.app';
+$('btnPartager').addEventListener('click',function(){
+  if(!conteAct)return;
+  var m="🌙 J'écoute « "+conteAct.titre+" » sur Contes Faso. "+conteAct.resume+
+    " À ton tour de jouer ici 👉 "+LIEN;
+  if(navigator.share)navigator.share({title:'Contes Faso',text:m,url:LIEN}).catch(function(){});
+  else window.open('https://wa.me/?text='+encodeURIComponent(m),'_blank');
+});
+
+// ================= NAVIGATION =================
+document.querySelectorAll('.navBtn').forEach(function(b){
+  b.addEventListener('click',function(){
+    vue=b.dataset.n;
+    document.querySelectorAll('.navBtn').forEach(function(x){x.classList.toggle('sel',x===b);});
+    rendreGrille();
+    $('contenu').scrollTop=0;
+  });
+});
+
+// ================= BANNIÈRE =================
+canvasActifs.push({cv:$('cvBan'),decor:'etoiles'});
+
+window.__contes={
+  state:function(){return {contes:CONTES.length,lus:lus.length,serie:serie,filtre:filtre,vue:vue,
+    visibles:document.querySelectorAll('#grille .carte').length,
+    lecteurOuvert:$('lecteur').style.display==='flex',
+    conteActuel:conteAct?conteAct.id:null,
+    conteDuSoir:conteDuSoir().id};},
+  ouvrir:function(id){ouvrir(id);},
+  fermer:fermer,
+  filtrer:function(f){filtre=f;rendreFiltres();rendreGrille();},
+  changerVue:function(v){vue=v;rendreGrille();},
+  lancerQuiz:function(){if(conteAct)lancerQuiz(conteAct.id);},
+  repondreQuiz:function(i){
+    var zo=document.getElementById('qopts');
+    if(zo&&zo.children[i]&&!zo.children[i].disabled){zo.children[i].click();return true;}
+    return false;
+  },
+  reset:function(){lus=[];serie=0;dernierJour=null;
+    try{['lus','serie','dernier'].forEach(function(k){localStorage.removeItem('fasocontes_'+k);});}catch(e){}
+    majSerie();rendreGrille();}
+};
+
+majSerie();
+rendreVedette();
+rendreFiltres();
+rendreGrille();
+boucle();
+})();
+</script>
+</body>
+</html>

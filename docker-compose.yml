@@ -1,0 +1,49 @@
+services:
+  base:
+    image: postgres:16-alpine
+    container_name: ludik-base
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PGUSER:-ludik}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-ludik}
+      POSTGRES_DB: ${PGDATABASE:-ludikafrik}
+    volumes:
+      - ludik-donnees:/var/lib/postgresql/data
+    # pas de port exposé vers l'extérieur : la base reste privée
+
+  api:
+    build: ./api
+    container_name: ludik-api
+    restart: unless-stopped
+    depends_on:
+      - base
+    environment:
+      PGHOST: base
+      PGUSER: ${PGUSER:-ludik}
+      PGPASSWORD: ${PGPASSWORD:-ludik}
+      PGDATABASE: ${PGDATABASE:-ludikafrik}
+      JWT_SECRET: ${JWT_SECRET}
+      OTP_SEL: ${OTP_SEL}
+      OTP_SMS_CONFIGURE: ${OTP_SMS_CONFIGURE:-false}
+      OTP_MODE_DEMO: ${OTP_MODE_DEMO:-true}
+      ADMIN_CLE_INIT: ${ADMIN_CLE_INIT}
+      MOOV_CONFIGURE: ${MOOV_CONFIGURE:-false}
+      MOOV_SHORTCODE: ${MOOV_SHORTCODE:-XXX}
+      MOOV_USSD: ${MOOV_USSD:-*XXX#}
+      MOOV_API_PAIEMENT: ${MOOV_API_PAIEMENT:-}
+      MOOV_API_CLE: ${MOOV_API_CLE:-}
+      MOOV_SECRET_RAPPEL: ${MOOV_SECRET_RAPPEL:-}
+      PORT: 3000
+    # port interne uniquement, proxifié par le service web
+
+  web:
+    build: ./web
+    container_name: ludik-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:8081:80"   # port Ludikafrik (8080=AfriKfables) ; le nginx système fait le HTTPS
+
+volumes:
+  ludik-donnees:

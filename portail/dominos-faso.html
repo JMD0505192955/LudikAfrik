@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Dominos Faso</title>
+<style>
+  :root{--vert:#0E7A3C;--rouge:#E32219;--or:#F5C21B;--nuit:#12130F;--craie:#FAF7EF;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:var(--nuit);font-family:"Arial Black","Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;}
+  header{width:100%;max-width:430px;padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-size:20px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial,sans-serif;font-weight:400;font-size:9px;letter-spacing:3px;color:#8b8f84;margin-top:3px;}
+  .marque{display:flex;align-items:center;gap:8px;font-size:22px;}
+  .marque .toi{color:var(--or);}
+  .marque .sep{color:#57594f;font-size:16px;}
+  .marque .ia{color:#c9ccc0;}
+  #msg{height:26px;font-size:14px;letter-spacing:.5px;text-align:center;color:var(--or);}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;justify-content:center;padding:0 12px 4px;}
+  canvas{display:block;border-radius:14px;}
+  #fin{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,19,15,.88);text-align:center;padding:24px;border-radius:14px;}
+  #fin h2{font-size:30px;color:var(--or);margin-bottom:6px;}
+  #fin p{font-family:Arial,sans-serif;font-size:14px;color:#c9ccc0;margin-bottom:20px;line-height:1.5;}
+  #fin button{font-family:inherit;font-size:16px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:14px 34px;}
+  #fin button:active{transform:scale(.96);}
+  footer{width:100%;max-width:430px;padding:8px 16px 14px;text-align:center;
+    font-family:Arial,sans-serif;font-size:11px;color:#6c7064;letter-spacing:.5px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DOMINOS <span>FASO</span><small>PREMIER À 50 POINTS</small></div>
+  <div style="display:flex;align-items:center;gap:0"><button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:32px;height:32px;font-size:14px;margin-right:8px">🔊</button>
+<div class="marque"><span class="toi" id="sToi">0</span><span class="sep">—</span><span class="ia" id="sIa">0</span></div>
+</div>
+</header>
+<div id="msg">Touche un domino jouable pour le poser 🁫</div>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="fin"><h2 id="finTitre"></h2><p id="finTexte"></p><button id="rejouer">CONTINUER</button></div>
+</div>
+<footer>Démo VAS — classement hebdo &amp; lots airtime à venir</footer>
+<script>
+(function(){
+"use strict";
+// ===== Kit sonore Faso Games (synthétisé, 0 Ko d'assets, silencieux par défaut respecté) =====
+var SFX=(function(){
+  var ctx,muet=false;
+  try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+  function ac(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();return ctx;}
+  function tone(freq,dur,type,vol,glide){
+    if(muet)return;
+    try{
+      var c=ac();var o=c.createOscillator();var g=c.createGain();
+      o.type=type||'sine';o.frequency.value=freq;
+      if(glide)o.frequency.linearRampToValueAtTime(glide,c.currentTime+dur);
+      g.gain.value=vol||0.15;
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+      o.connect(g);g.connect(c.destination);
+      o.start();o.stop(c.currentTime+dur);
+    }catch(e){}
+  }
+  return{
+    tap:function(){tone(440,0.05,'square',0.08);},
+    bon:function(){tone(523,0.09,'sine',0.14);setTimeout(function(){tone(784,0.12,'sine',0.14);},70);},
+    mauvais:function(){tone(160,0.22,'sawtooth',0.12,90);},
+    victoire:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.15);},i*90);});},
+    defaite:function(){[392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.22,'sine',0.12);},i*120);});},
+    piece:function(){tone(988,0.08,'triangle',0.12,1400);},
+    tick:function(){tone(300,0.03,'square',0.05);},
+    estMuet:function(){return muet;},
+    toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+  };
+})();
+// Bouton mute (à placer dans le header de chaque jeu)
+function initBoutonSon(id){
+  var b=document.getElementById(id);
+  if(!b)return;
+  function maj(){b.textContent=SFX.estMuet()?'🔇':'🔊';}
+  maj();
+  b.addEventListener('click',function(){SFX.toggle();maj();});
+}
+// Confetti simple (petites particules colorées, pour les écrans de victoire)
+function confetti(canvas,ctx,cx,cy){
+  var parts=[];
+  var couleurs=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<24;i++){
+    var a=Math.random()*Math.PI*2,v=2+Math.random()*3;
+    parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,g:0.12,vie:1,col:couleurs[i%couleurs.length],taille:3+Math.random()*3});
+  }
+  return parts;
+}
+function drawConfetti(ctx,parts,dt){
+  for(var i=parts.length-1;i>=0;i--){
+    var p=parts[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vie-=0.018*dt;
+    if(p.vie<=0){parts.splice(i,1);continue;}
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.taille/2,p.y-p.taille/2,p.taille,p.taille);
+    ctx.globalAlpha=1;
+  }
+}
+initBoutonSon("btnSon");
+
+const cvs=document.getElementById('c'),ctx=cvs.getContext('2d');
+const sToi=document.getElementById('sToi'),sIa=document.getElementById('sIa');
+const msg=document.getElementById('msg'),fin=document.getElementById('fin');
+const finTitre=document.getElementById('finTitre'),finTexte=document.getElementById('finTexte');
+let W=0,H=0,DPR=1;
+let confettiParts=[];
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  const r=cvs.parentElement.getBoundingClientRect();
+  W=r.width-24;H=r.height-8;
+  cvs.style.width=W+'px';cvs.style.height=H+'px';
+  cvs.width=W*DPR;cvs.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize',resize);
+
+// ---- État ----
+let pioche, mainToi, mainIa, chaine, tour, phase, scoreToi=0, scoreIa=0;
+let choixTuile=null, passesConsec=0, matchFini=false;
+const CIBLE=50;
+
+function melange(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function nouvelleManche(){
+  pioche=[];
+  for(let a=0;a<=6;a++)for(let b=a;b<=6;b++)pioche.push({a,b});
+  melange(pioche);
+  mainToi=pioche.splice(0,7);
+  mainIa=pioche.splice(0,7);
+  chaine=[];choixTuile=null;passesConsec=0;
+  // le plus gros double commence ; sinon le joueur
+  const dToi=Math.max(...mainToi.filter(t=>t.a===t.b).map(t=>t.a),-1);
+  const dIa=Math.max(...mainIa.filter(t=>t.a===t.b).map(t=>t.a),-1);
+  if(dIa>dToi){
+    tour=1;phase='ia';
+    msg.textContent="L'IA ouvre avec son double...";
+    setTimeout(iaJoue,700);
+  }else{
+    tour=0;phase='joueur';
+    msg.textContent="À toi d'ouvrir ! Touche un domino 🁫";
+  }
+}
+function gauche(){return chaine.length?chaine[0].a:null;}
+function droite(){return chaine.length?chaine[chaine.length-1].b:null;}
+function jouable(t){
+  if(!chaine.length)return {g:true,d:true};
+  const g=t.a===gauche()||t.b===gauche();
+  const d=t.a===droite()||t.b===droite();
+  return {g,d};
+}
+function poser(main,idx,cote){
+  const t=main.splice(idx,1)[0];
+  SFX.tap();
+  if(!chaine.length){chaine.push({a:t.a,b:t.b});return;}
+  if(cote==='g'){
+    chaine.unshift(t.b===gauche()?{a:t.a,b:t.b}:{a:t.b,b:t.a});
+  }else{
+    chaine.push(t.a===droite()?{a:t.a,b:t.b}:{a:t.b,b:t.a});
+  }
+}
+function pips(main){return main.reduce((s,t)=>s+t.a+t.b,0);}
+
+function apresCoup(quiVientDeJouer){
+  passesConsec=0;
+  if(quiVientDeJouer===0&&mainToi.length===0)return finManche(0,'main vide');
+  if(quiVientDeJouer===1&&mainIa.length===0)return finManche(1,'main vide');
+  tour=1-quiVientDeJouer;
+  if(tour===0){
+    phase='joueur';
+    if(!aJouable(mainToi)&&pioche.length===0){
+      passe(0);
+    }else if(!aJouable(mainToi)){
+      msg.textContent="Rien à jouer... touche la PIOCHE !";
+    }else{
+      msg.textContent="À toi de jouer";
+    }
+  }else{
+    phase='ia';
+    setTimeout(iaJoue,650);
+  }
+}
+function aJouable(main){
+  return main.some(t=>{const j=jouable(t);return j.g||j.d;});
+}
+function passe(qui){
+  passesConsec++;
+  msg.textContent=(qui===0?"Tu passes...":"L'IA passe...");
+  if(passesConsec>=2)return finManche(null,'bloqué');
+  tour=1-qui;
+  if(tour===1){phase='ia';setTimeout(iaJoue,650);}
+  else{
+    phase='joueur';
+    if(!aJouable(mainToi)&&pioche.length===0)passe(0);
+    else if(!aJouable(mainToi))msg.textContent="Rien à jouer... touche la PIOCHE !";
+  }
+}
+function iaJoue(){
+  // pioche tant que rien de jouable
+  while(!aJouable(mainIa)&&pioche.length>0){
+    mainIa.push(pioche.pop());
+  }
+  if(!aJouable(mainIa))return passe(1);
+  // stratégie : jouer la tuile la plus lourde jouable
+  let best=-1,bIdx=0,bCote='d';
+  mainIa.forEach((t,i)=>{
+    const j=jouable(t);
+    const poids=t.a+t.b+(t.a===t.b?3:0); // se débarrasser des doubles
+    if(j.d&&poids>best){best=poids;bIdx=i;bCote='d';}
+    if(j.g&&poids>best){best=poids;bIdx=i;bCote='g';}
+  });
+  poser(mainIa,bIdx,bCote);
+  msg.textContent="L'IA pose... ("+mainIa.length+" restants)";
+  apresCoup(1);
+}
+function finManche(gagnant,raison){
+  phase='inter';
+  let pts=0,texte='';
+  if(raison==='bloqué'){
+    const pT=pips(mainToi),pI=pips(mainIa);
+    if(pT<pI){gagnant=0;pts=pI-pT;}
+    else if(pI<pT){gagnant=1;pts=pT-pI;}
+    else{gagnant=null;}
+    texte='Jeu bloqué ! Tes points : '+pT+' — IA : '+pI+'. ';
+  }else{
+    pts=gagnant===0?pips(mainIa):pips(mainToi);
+    texte=(gagnant===0?'Main vide ! ':'L\'IA a vidé sa main. ');
+  }
+  if(gagnant===0){scoreToi+=pts;sToi.textContent=scoreToi;texte+='Tu marques +'+pts+' pts.';}
+  else if(gagnant===1){scoreIa+=pts;sIa.textContent=scoreIa;texte+='L\'IA marque +'+pts+' pts.';}
+  else texte+='Égalité, personne ne marque.';
+
+  if(scoreToi>=CIBLE||scoreIa>=CIBLE){
+    matchFini=true;
+    finTitre.textContent=scoreToi>=CIBLE?'🏆 MATCH GAGNÉ':'MATCH PERDU';
+    finTexte.textContent=texte+' Score final '+scoreToi+' — '+scoreIa+'. '+
+      (scoreToi>=CIBLE?"Champion du maquis ! Le classement hebdo t'attend.":"Revanche immédiate ?");
+    document.getElementById('rejouer').textContent='REJOUER';
+    if(scoreToi>=CIBLE){SFX.victoire();confettiParts=confetti(cvs,ctx,W/2,H*0.4);}else{SFX.defaite();}
+  }else{
+    matchFini=false;
+    finTitre.textContent=gagnant===0?'Manche gagnée !':gagnant===1?'Manche perdue':'Manche nulle';
+    finTexte.textContent=texte+' Premier à '+CIBLE+' points.';
+    document.getElementById('rejouer').textContent='MANCHE SUIVANTE';
+    if(gagnant===0)SFX.bon();else if(gagnant===1)SFX.mauvais();
+  }
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Dominos',score:scoreToi*8+(scoreToi>=CIBLE?150:0),victoire:scoreToi>=CIBLE},'*');}catch(e){}}
+  fin.style.display='flex';
+}
+document.getElementById('rejouer').addEventListener('click',()=>{
+  fin.style.display='none';confettiParts=[];
+  if(matchFini){scoreToi=0;scoreIa=0;sToi.textContent='0';sIa.textContent='0';}
+  nouvelleManche();
+});
+
+// ---- Rendu ----
+const TW=36,TH=19, HW=30,HH=58;
+let zonesMain=[], zonePioche=null, zonesChoix=null;
+function slots(n){
+  const m=Math.max(4,Math.floor((W-24)/(TW+3)));
+  const out=[];
+  for(let i=0;i<n;i++){
+    const row=Math.floor(i/m);
+    let col=i%m;
+    if(row%2===1)col=m-1-col;
+    out.push({x:12+col*(TW+3), y:H*0.16+row*(TH+8), inv:row%2===1});
+  }
+  return out;
+}
+function draw(){
+  ctx.fillStyle='#0E5233';
+  ctx.beginPath();ctx.roundRect(0,0,W,H,14);ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.12)';
+  for(let i=0;i<30;i++)ctx.fillRect((i*97)%W,(i*53)%H,3,3);
+
+  // main IA (dos)
+  ctx.font='11px Arial';ctx.textAlign='left';
+  ctx.fillStyle='rgba(250,247,239,.6)';
+  ctx.fillText('IA — '+mainIa.length+' dominos',12,20);
+  for(let i=0;i<Math.min(mainIa.length,12);i++){
+    ctx.fillStyle='#1d1f19';
+    ctx.beginPath();ctx.roundRect(12+i*24,28,20,32,4);ctx.fill();
+    ctx.strokeStyle='#F5C21B';ctx.lineWidth=1;
+    ctx.strokeRect(15+i*24,31,14,26);
+  }
+
+  // chaîne
+  const sl=slots(chaine.length);
+  for(let i=0;i<chaine.length;i++){
+    const t=chaine[i], s=sl[i];
+    const a=s.inv?t.b:t.a, b=s.inv?t.a:t.b;
+    drawTuileH(s.x,s.y,a,b,false);
+  }
+  // extrémités en surbrillance
+  if(chaine.length&&phase==='joueur'){
+    ctx.strokeStyle='rgba(245,194,27,.8)';ctx.lineWidth=2;
+    ctx.strokeRect(sl[0].x-2,sl[0].y-2,TW+4,TH+4);
+    const d=sl[chaine.length-1];
+    ctx.strokeRect(d.x-2,d.y-2,TW+4,TH+4);
+  }
+
+  // pioche
+  zonePioche={x:W-72,y:H-HH-58,w:60,h:40};
+  const bloquer=phase!=='joueur'||aJouable(mainToi)||pioche.length===0;
+  ctx.fillStyle=bloquer?'#1d1f19':'#F5C21B';
+  ctx.beginPath();ctx.roundRect(zonePioche.x,zonePioche.y,zonePioche.w,zonePioche.h,8);ctx.fill();
+  ctx.fillStyle=bloquer?'#8b8f84':'#12130F';
+  ctx.font='bold 11px Arial';ctx.textAlign='center';
+  ctx.fillText('PIOCHE',zonePioche.x+30,zonePioche.y+17);
+  ctx.fillText('('+pioche.length+')',zonePioche.x+30,zonePioche.y+31);
+
+  // main joueur
+  zonesMain=[];
+  const n=mainToi.length;
+  const espace=Math.min(HW+6,(W-24)/Math.max(1,n));
+  const x0=(W-espace*n)/2+espace/2;
+  ctx.fillStyle='rgba(250,247,239,.6)';
+  ctx.font='11px Arial';ctx.textAlign='left';
+  ctx.fillText('TOI — touche pour jouer',12,H-HH-22);
+  for(let i=0;i<n;i++){
+    const t=mainToi[i];
+    const x=x0+i*espace-HW/2, y=H-HH-8;
+    const j=phase==='joueur'?jouable(t):{g:false,d:false};
+    const ok=j.g||j.d;
+    drawTuileV(x,y,t.a,t.b,ok,choixTuile===i);
+    zonesMain.push({x,y,w:HW,h:HH,ok,i});
+  }
+
+  // choix gauche/droite
+  zonesChoix=null;
+  if(choixTuile!==null){
+    const yb=H*0.16-34;
+    zonesChoix={
+      g:{x:16,y:yb,w:110,h:28},
+      d:{x:W-126,y:yb,w:110,h:28},
+    };
+    for(const [k,z] of Object.entries(zonesChoix)){
+      ctx.fillStyle='#F5C21B';
+      ctx.beginPath();ctx.roundRect(z.x,z.y,z.w,z.h,14);ctx.fill();
+      ctx.fillStyle='#12130F';ctx.font='bold 12px Arial';ctx.textAlign='center';
+      ctx.fillText(k==='g'?'◀ À GAUCHE':'À DROITE ▶',z.x+z.w/2,z.y+18);
+    }
+  }
+}
+function drawTuileH(x,y,a,b,hl){
+  ctx.fillStyle='#FAF7EF';
+  ctx.beginPath();ctx.roundRect(x,y,TW,TH,3);ctx.fill();
+  ctx.strokeStyle='#12130F';ctx.lineWidth=1.2;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x+TW/2,y+2);ctx.lineTo(x+TW/2,y+TH-2);ctx.stroke();
+  drawPips(x+TW/4,y+TH/2,a,TW/4-2);
+  drawPips(x+3*TW/4,y+TH/2,b,TW/4-2);
+}
+function drawTuileV(x,y,a,b,ok,sel){
+  ctx.fillStyle='rgba(0,0,0,.3)';
+  ctx.beginPath();ctx.roundRect(x+2,y+3,HW,HH,5);ctx.fill();
+  ctx.fillStyle=ok?'#FAF7EF':'#b8b3a4';
+  ctx.beginPath();ctx.roundRect(x,y,HW,HH,5);ctx.fill();
+  ctx.strokeStyle=sel?'#E32219':ok?'#F5C21B':'#57594f';
+  ctx.lineWidth=sel?3:2;ctx.stroke();
+  ctx.strokeStyle='#12130F';ctx.lineWidth=1.2;
+  ctx.beginPath();ctx.moveTo(x+3,y+HH/2);ctx.lineTo(x+HW-3,y+HH/2);ctx.stroke();
+  drawPips(x+HW/2,y+HH/4,a,HW/2-5);
+  drawPips(x+HW/2,y+3*HH/4,b,HW/2-5);
+}
+function drawPips(cx,cy,v,r){
+  ctx.fillStyle='#12130F';
+  const o=r*0.55, pts={
+    0:[],1:[[0,0]],2:[[-o,-o],[o,o]],3:[[-o,-o],[0,0],[o,o]],
+    4:[[-o,-o],[o,-o],[-o,o],[o,o]],
+    5:[[-o,-o],[o,-o],[0,0],[-o,o],[o,o]],
+    6:[[-o,-o],[o,-o],[-o,0],[o,0],[-o,o],[o,o]],
+  };
+  for(const [dx,dy] of pts[v]){
+    ctx.beginPath();ctx.arc(cx+dx,cy+dy,2.1,0,7);ctx.fill();
+  }
+}
+// ---- Entrées ----
+function tap(cx,cy){
+  if(phase!=='joueur')return;
+  const r=cvs.getBoundingClientRect();
+  const x=cx-r.left,y=cy-r.top;
+  // choix de côté
+  if(choixTuile!==null&&zonesChoix){
+    for(const [k,z] of Object.entries(zonesChoix)){
+      if(x>z.x&&x<z.x+z.w&&y>z.y&&y<z.y+z.h){
+        poser(mainToi,choixTuile,k);
+        choixTuile=null;
+        apresCoup(0);
+        return;
+      }
+    }
+    choixTuile=null;
+    return;
+  }
+  // pioche
+  if(zonePioche&&x>zonePioche.x&&x<zonePioche.x+zonePioche.w&&
+     y>zonePioche.y&&y<zonePioche.y+zonePioche.h){
+    if(!aJouable(mainToi)&&pioche.length>0){
+      mainToi.push(pioche.pop());
+      msg.textContent=aJouable(mainToi)?"Pioché ! Tu peux jouer":"Encore rien... repioche !";
+      if(!aJouable(mainToi)&&pioche.length===0)passe(0);
+    }
+    return;
+  }
+  // main
+  for(const z of zonesMain){
+    if(x>z.x&&x<z.x+z.w&&y>z.y&&y<z.y+z.h){
+      if(!z.ok){msg.textContent="Ce domino ne colle à aucune extrémité";return;}
+      const t=mainToi[z.i], j=jouable(t);
+      if(!chaine.length||(j.g&&!j.d)){poser(mainToi,z.i,'g');apresCoup(0);}
+      else if(j.d&&!j.g){poser(mainToi,z.i,'d');apresCoup(0);}
+      else{choixTuile=z.i;msg.textContent="Gauche ou droite ?";}
+      return;
+    }
+  }
+}
+cvs.addEventListener('touchstart',e=>{tap(e.touches[0].clientX,e.touches[0].clientY);e.preventDefault();},{passive:false});
+cvs.addEventListener('mousedown',e=>{tap(e.clientX,e.clientY);});
+window.__dom={
+  state:()=>({toi:mainToi.length,ia:mainIa.length,pioche:pioche.length,
+    chaine:chaine.length,phase,scoreToi,scoreIa,confettiN:confettiParts.length,muet:SFX.estMuet()}),
+  autoToi:()=>{
+    if(phase!=='joueur')return false;
+    while(!aJouable(mainToi)&&pioche.length>0)mainToi.push(pioche.pop());
+    if(!aJouable(mainToi)){passe(0);return true;}
+    for(let i=0;i<mainToi.length;i++){
+      const j=jouable(mainToi[i]);
+      if(j.g||j.d){poser(mainToi,i,j.d?'d':'g');apresCoup(0);return true;}
+    }
+    return false;
+  },
+  forcerVictoireMatch:()=>{scoreToi=CIBLE;scoreIa=10;finManche(0,'main vide');}
+};
+// ---- Boucle ----
+let lastT=0;
+function loop(now){
+  draw();
+  const dt=lastT?Math.min(2.5,(now-lastT)/16.7):1;lastT=now;
+  if(confettiParts.length)drawConfetti(ctx,confettiParts,dt);
+  requestAnimationFrame(loop);
+}
+resize();nouvelleManche();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

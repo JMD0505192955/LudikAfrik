@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Rendu Monnaie Faso</title>
+<style>
+  :root{--vert:#0E7A3C;--rouge:#E32219;--or:#F5C21B;--nuit:#12130F;--craie:#FAF7EF;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:var(--nuit);font-family:"Arial Black","Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;}
+  header{width:100%;max-width:430px;padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-size:20px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial,sans-serif;font-weight:400;font-size:9px;letter-spacing:3px;color:#8b8f84;margin-top:3px;}
+  .scores{text-align:right;line-height:1.25;}
+  .scores .val{font-size:20px;color:var(--or);}
+  .scores .lbl{font-family:Arial,sans-serif;font-size:9px;letter-spacing:2px;color:#8b8f84;}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;flex-direction:column;padding:6px 16px 10px;}
+  #barreTemps{height:6px;background:#1d1f19;border-radius:99px;overflow:hidden;margin-bottom:14px;}
+  #barreTemps>div{height:100%;background:var(--or);width:100%;transition:width .1s linear;}
+  #consigne{text-align:center;font-family:Arial;font-weight:normal;font-size:15px;color:#c9ccc0;margin-bottom:4px;}
+  #cible{text-align:center;font-size:34px;color:var(--or);margin-bottom:10px;}
+  #actuel{background:#1d1f19;border-radius:12px;padding:12px;text-align:center;margin-bottom:8px;}
+  #actuel .lbl{font-family:Arial;font-size:11px;color:#8b8f84;letter-spacing:1px;}
+  #actuel .m{font-size:28px;color:var(--craie);margin-top:2px;}
+  #actuel .m.plein{color:var(--vert);}
+  #actuel .m.trop{color:var(--rouge);}
+  #actuel .pieces{font-family:Arial;font-size:11px;color:#8b8f84;margin-top:4px;}
+  #actions{display:flex;gap:8px;margin-bottom:10px;}
+  #actions button{flex:1;background:#1d1f19;border:1px solid #2a2c24;color:var(--craie);border-radius:10px;
+    padding:9px 4px;font-family:inherit;font-size:12px;letter-spacing:1px;}
+  #actions .valider{background:var(--or);color:var(--nuit);border-color:var(--or);}
+  #actions .valider:disabled{opacity:.35;}
+  #pieces{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+  .piece{background:#1d1f19;border:2px solid #2a2c24;color:var(--craie);border-radius:12px;
+    padding:16px 0;font-family:inherit;font-size:18px;font-weight:bold;transition:.12s;position:relative;}
+  .piece:active{transform:scale(.94);}
+  .piece.p5{border-color:#8a5a33;} .piece.p25{border-color:#3d5a80;} .piece.p50{border-color:#128a44;}
+  .piece.p100{border-color:var(--or);} .piece.p200{border-color:#c9c4b6;} .piece.p500{border-color:#F28C1B;}
+  .piece.p1000{border-color:var(--rouge);} .piece.p2000{border-color:#8a5a33;}
+  #serie{text-align:center;height:22px;font-size:15px;color:var(--or);margin:6px 0 8px;}
+  #fin{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,19,15,.94);text-align:center;padding:22px;}
+  #fin h2{font-size:44px;color:var(--or);margin-bottom:4px;}
+  #fin .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;width:100%;max-width:340px;margin:10px 0 20px;}
+  #fin .stat{background:#1d1f19;border-radius:10px;padding:12px 6px;}
+  #fin .stat .v{font-size:22px;font-weight:bold;color:var(--or);}
+  #fin .stat .l{font-size:10px;color:#8b8f84;letter-spacing:1px;margin-top:2px;}
+  #fin p{font-family:Arial,sans-serif;font-size:14px;color:#c9ccc0;margin-bottom:22px;line-height:1.5;max-width:340px;}
+  #fin button{font-family:inherit;font-size:16px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:14px 40px;}
+  footer{width:100%;max-width:430px;padding:6px 16px 12px;text-align:center;
+    font-family:Arial,sans-serif;font-size:11px;color:#6c7064;letter-spacing:.5px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">RENDU MONNAIE <span>FASO</span><small>MIN. DE PIÈCES · 45 S</small></div>
+  <div style="display:flex;align-items:center;gap:0"><button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:32px;height:32px;font-size:14px;margin-right:8px">🔊</button>
+<div class="scores"><div class="val" id="score">0</div>
+  <div class="lbl">SÉRIE <span id="serieN">0</span> 🔥</div></div>
+</div>
+</header>
+<div id="wrap">
+  <div id="barreTemps"><div id="jauge"></div></div>
+  <div id="consigne">Reconstitue le montant avec le MOINS de pièces</div>
+  <div id="cible">0 F</div>
+  <div id="actuel">
+    <div class="lbl">MON PANIER</div>
+    <div class="m" id="mActuel">0 F</div>
+    <div class="pieces" id="pActuel">0 pièces</div>
+  </div>
+  <div id="actions">
+    <button id="reinit">↺ RÉINITIALISER</button>
+    <button id="valider" class="valider" disabled>VALIDER</button>
+  </div>
+  <div id="serie">Solution optimale = points max</div>
+  <div id="pieces"></div>
+  <div id="fin">
+    <h2 id="finScore"></h2>
+    <div class="stats">
+      <div class="stat"><div class="v" id="fBonnes">0</div><div class="l">RÉUSSIES</div></div>
+      <div class="stat"><div class="v" id="fOpti">0</div><div class="l">PARFAITES</div></div>
+      <div class="stat"><div class="v" id="fSerie">0</div><div class="l">MEILLEURE</div></div>
+    </div>
+    <p id="finTexte"></p>
+    <button id="rejouer">REJOUER</button>
+  </div>
+</div>
+<footer>Démo VAS — classement hebdo &amp; lots airtime à venir</footer>
+<script>
+(function(){
+"use strict";
+// ===== Kit sonore Faso Games (synthétisé, 0 Ko d'assets, silencieux par défaut respecté) =====
+var SFX=(function(){
+  var ctx,muet=false;
+  try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+  function ac(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();return ctx;}
+  function tone(freq,dur,type,vol,glide){
+    if(muet)return;
+    try{
+      var c=ac();var o=c.createOscillator();var g=c.createGain();
+      o.type=type||'sine';o.frequency.value=freq;
+      if(glide)o.frequency.linearRampToValueAtTime(glide,c.currentTime+dur);
+      g.gain.value=vol||0.15;
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+      o.connect(g);g.connect(c.destination);
+      o.start();o.stop(c.currentTime+dur);
+    }catch(e){}
+  }
+  return{
+    tap:function(){tone(440,0.05,'square',0.08);},
+    bon:function(){tone(523,0.09,'sine',0.14);setTimeout(function(){tone(784,0.12,'sine',0.14);},70);},
+    mauvais:function(){tone(160,0.22,'sawtooth',0.12,90);},
+    victoire:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.15);},i*90);});},
+    defaite:function(){[392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.22,'sine',0.12);},i*120);});},
+    piece:function(){tone(988,0.08,'triangle',0.12,1400);},
+    tick:function(){tone(300,0.03,'square',0.05);},
+    estMuet:function(){return muet;},
+    toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+  };
+})();
+// Bouton mute (à placer dans le header de chaque jeu)
+function initBoutonSon(id){
+  var b=document.getElementById(id);
+  if(!b)return;
+  function maj(){b.textContent=SFX.estMuet()?'🔇':'🔊';}
+  maj();
+  b.addEventListener('click',function(){SFX.toggle();maj();});
+}
+// Confetti simple (petites particules colorées, pour les écrans de victoire)
+function confetti(canvas,ctx,cx,cy){
+  var parts=[];
+  var couleurs=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<24;i++){
+    var a=Math.random()*Math.PI*2,v=2+Math.random()*3;
+    parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,g:0.12,vie:1,col:couleurs[i%couleurs.length],taille:3+Math.random()*3});
+  }
+  return parts;
+}
+function drawConfetti(ctx,parts,dt){
+  for(var i=parts.length-1;i>=0;i--){
+    var p=parts[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vie-=0.018*dt;
+    if(p.vie<=0){parts.splice(i,1);continue;}
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.taille/2,p.y-p.taille/2,p.taille,p.taille);
+    ctx.globalAlpha=1;
+  }
+}
+
+
+function domConfetti(){
+  const colors=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(let i=0;i<28;i++){
+    const el=document.createElement('div');
+    const size=4+Math.random()*4;
+    el.style.cssText='position:fixed;z-index:60;pointer-events:none;border-radius:2px;';
+    el.style.width=size+'px';el.style.height=size+'px';
+    el.style.background=colors[i%colors.length];
+    el.style.left=(window.innerWidth/2+(Math.random()-0.5)*60)+'px';
+    el.style.top='38%';
+    document.body.appendChild(el);
+    const dx=(Math.random()-0.5)*260, dy=200+Math.random()*220, rot=Math.random()*720-360;
+    const dur=900+Math.random()*500;
+    el.animate([
+      {transform:'translate(0,0) rotate(0deg)',opacity:1},
+      {transform:'translate('+dx+'px,'+dy+'px) rotate('+rot+'deg)',opacity:0}
+    ],{duration:dur,easing:'cubic-bezier(.25,.46,.45,.94)'});
+    setTimeout(()=>el.remove(),dur+50);
+  }
+}
+initBoutonSon("btnSon");
+
+// Coupures FCFA courantes
+const COUPURES=[5,25,50,100,200,500,1000,2000];
+
+const cibleEl=document.getElementById('cible');
+const mActuelEl=document.getElementById('mActuel'),pActuelEl=document.getElementById('pActuel');
+const piecesEl=document.getElementById('pieces'),reinitBtn=document.getElementById('reinit'),validerBtn=document.getElementById('valider');
+const scoreEl=document.getElementById('score'),serieN=document.getElementById('serieN');
+const serieEl=document.getElementById('serie'),jauge=document.getElementById('jauge');
+const fin=document.getElementById('fin'),finScore=document.getElementById('finScore');
+const finTexte=document.getElementById('finTexte');
+const fBonnes=document.getElementById('fBonnes'),fOpti=document.getElementById('fOpti'),fSerie=document.getElementById('fSerie');
+
+const DUREE=45;
+let score,serie,meilleureSerie,manches,reussies,parfaites,tempsRestant,timer;
+let cible,panier,optimal;
+
+function minPieces(montant){
+  // glouton descendant (fonctionne sur ces coupures)
+  let n=0,r=montant;
+  const t=COUPURES.slice().sort((a,b)=>b-a);
+  for(const c of t){while(r>=c){r-=c;n++;}}
+  return n;
+}
+function genererCible(){
+  // choisir montant atteignable, croissant avec le score
+  const niveau=Math.min(4,1+Math.floor(score/70));
+  const bases=[
+    [100,200,225,275,325,425,500,725],
+    [750,825,1025,1225,1275,1500,1725],
+    [1750,2225,2500,3225,3775,4225,5000],
+    [5225,5500,6725,7500,10000,12275],
+  ];
+  const arr=bases[niveau-1];
+  return arr[Math.floor(Math.random()*arr.length)];
+}
+
+function nouvelleManche(){
+  cible=genererCible();
+  optimal=minPieces(cible);
+  panier=[];
+  cibleEl.textContent=cible.toLocaleString('fr-FR')+' F';
+  render();
+  // pièces
+  piecesEl.innerHTML='';
+  COUPURES.forEach(c=>{
+    const b=document.createElement('button');
+    b.className='piece p'+c;
+    b.textContent=c.toLocaleString('fr-FR')+' F';
+    b.addEventListener('click',()=>ajoute(c));
+    piecesEl.appendChild(b);
+  });
+}
+function sum(){return panier.reduce((a,b)=>a+b,0);}
+function render(){
+  const s=sum();
+  mActuelEl.textContent=s.toLocaleString('fr-FR')+' F';
+  pActuelEl.textContent=panier.length+' pièce'+(panier.length>1?'s':'');
+  mActuelEl.className='m';
+  if(s===cible)mActuelEl.classList.add('plein');
+  else if(s>cible)mActuelEl.classList.add('trop');
+  validerBtn.disabled=(s!==cible);
+}
+function ajoute(c){panier.push(c);SFX.tick();render();}
+reinitBtn.addEventListener('click',()=>{panier=[];render();});
+validerBtn.addEventListener('click',()=>{
+  const n=panier.length;
+  reussies++;manches++;
+  let pts,texte;
+  if(n===optimal){
+    parfaites++;serie++;
+    if(serie>meilleureSerie)meilleureSerie=serie;
+    pts=40+Math.min(30,(serie-1)*5);
+    texte='✨ Parfait ('+n+' pièces) — +'+pts+' pts'+(serie>=3?' · série x'+serie+' 🔥':'');
+    SFX.bon();
+  }else{
+    serie=0;
+    // score dégressif selon l'écart au minimum
+    const ecart=n-optimal;
+    pts=Math.max(5,25-ecart*4);
+    texte='✔️ Correct mais '+n+' pièces (min : '+optimal+') — +'+pts+' pts';
+    SFX.tap();
+  }
+  score+=pts;
+  scoreEl.textContent=score;serieN.textContent=serie;
+  serieEl.textContent=texte;
+  setTimeout(()=>{if(tempsRestant>0)nouvelleManche();},900);
+});
+
+function reset(){
+  score=0;serie=0;meilleureSerie=0;reussies=0;parfaites=0;manches=0;tempsRestant=DUREE;
+  scoreEl.textContent='0';serieN.textContent='0';
+  fin.style.display='none';
+  serieEl.textContent='Solution optimale = points max';
+  nouvelleManche();
+  jauge.style.width='100%';jauge.style.background='#F5C21B';
+  clearInterval(timer);
+  timer=setInterval(tick,100);
+}
+function tick(){
+  tempsRestant-=0.1;
+  jauge.style.width=Math.max(0,tempsRestant/DUREE*100)+'%';
+  jauge.style.background=tempsRestant<5?'#E32219':'#F5C21B';
+  if(tempsRestant<=0){clearInterval(timer);terminer();}
+}
+function terminer(){
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Rendu Monnaie',score:Math.round(score*1.3),victoire:score>=280},'*');}catch(e){}}
+  fin.style.display='flex';
+  finScore.textContent=score+' pts';
+  fBonnes.textContent=reussies;
+  fOpti.textContent=parfaites;
+  fSerie.textContent=meilleureSerie;
+  finTexte.textContent=score>=280?"Œil de marchande de Sankariaré ! Le classement hebdo t'attend."
+    :score>=150?"Bien joué ! Vise le minimum de pièces à chaque coup."
+    :"Astuce : commence toujours par la plus grosse pièce qui rentre !";
+  if(score>=280){SFX.victoire();domConfetti();}
+}
+document.getElementById('rejouer').addEventListener('click',reset);
+
+window.__monnaie={
+  forcerFin:()=>{score=300;terminer();},
+  state:()=>({score,serie,tempsRestant,cible,panier:panier.slice(),optimal,manches,parfaites,muet:SFX.estMuet()}),
+  jouerOptimal:()=>{
+    let r=cible;const t=COUPURES.slice().sort((a,b)=>b-a);
+    panier=[];
+    for(const c of t){while(r>=c){r-=c;panier.push(c);}}
+    render();
+    validerBtn.click();
+  }};
+reset();
+})();
+</script>
+</body>
+</html>

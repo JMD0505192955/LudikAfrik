@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Briques Faso</title>
+<style>
+  :root{
+    --vert:#0E7A3C; --vert-fonce:#0A5C2D; --rouge:#E32219; --or:#F5C21B;
+    --nuit:#12130F; --craie:#FAF7EF;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    background:var(--nuit);
+    font-family:"Arial Black","Segoe UI",Arial,sans-serif;
+    color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;
+    overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;
+  }
+  header{
+    width:100%;max-width:430px;padding:12px 16px 8px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .logo{font-size:20px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial,sans-serif;font-weight:400;font-size:9px;letter-spacing:3px;color:#8b8f84;margin-top:3px;}
+  .scores{text-align:right;line-height:1.25;}
+  .scores .val{font-size:20px;color:var(--or);}
+  .scores .lbl{font-family:Arial,sans-serif;font-size:9px;letter-spacing:2px;color:#8b8f84;}
+  #msg{height:26px;font-size:14px;letter-spacing:.5px;text-align:center;color:var(--or);}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;justify-content:center;padding:0 12px 4px;}
+  canvas{display:block;border-radius:14px;}
+  #fin{
+    position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,19,15,.88);text-align:center;padding:24px;border-radius:14px;
+  }
+  #fin h2{font-size:30px;color:var(--or);margin-bottom:6px;}
+  #fin p{font-family:Arial,sans-serif;font-size:14px;color:#c9ccc0;margin-bottom:20px;line-height:1.5;}
+  #fin button{
+    font-family:inherit;font-size:16px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:14px 34px;
+  }
+  #fin button:active{transform:scale(.96);}
+  footer{
+    width:100%;max-width:430px;padding:8px 16px 14px;text-align:center;
+    font-family:Arial,sans-serif;font-size:11px;color:#6c7064;letter-spacing:.5px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">BRIQUES <span>FASO</span><small>CASSE TOUT LE MUR</small></div>
+  <div style="display:flex;align-items:center;gap:0"><button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:32px;height:32px;font-size:14px;margin-right:8px">🔊</button>
+<div class="scores">
+    <div class="val" id="score">0</div>
+    <div class="lbl">NIVEAU <span id="niv">1</span> · <span id="vies">❤❤❤</span></div>
+  </div>
+</div>
+</header>
+<div id="msg">Glisse le doigt pour bouger la raquette</div>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="fin">
+    <h2 id="finTitre"></h2>
+    <p id="finTexte"></p>
+    <button id="rejouer">REJOUER</button>
+  </div>
+</div>
+<footer>Démo VAS — classement hebdo &amp; lots airtime à venir</footer>
+
+<script>
+(function(){
+"use strict";
+// ===== Kit sonore Faso Games (synthétisé, 0 Ko d'assets, silencieux par défaut respecté) =====
+var SFX=(function(){
+  var ctx,muet=false;
+  try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+  function ac(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();return ctx;}
+  function tone(freq,dur,type,vol,glide){
+    if(muet)return;
+    try{
+      var c=ac();var o=c.createOscillator();var g=c.createGain();
+      o.type=type||'sine';o.frequency.value=freq;
+      if(glide)o.frequency.linearRampToValueAtTime(glide,c.currentTime+dur);
+      g.gain.value=vol||0.15;
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+      o.connect(g);g.connect(c.destination);
+      o.start();o.stop(c.currentTime+dur);
+    }catch(e){}
+  }
+  return{
+    tap:function(){tone(440,0.05,'square',0.08);},
+    bon:function(){tone(523,0.09,'sine',0.14);setTimeout(function(){tone(784,0.12,'sine',0.14);},70);},
+    mauvais:function(){tone(160,0.22,'sawtooth',0.12,90);},
+    victoire:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.15);},i*90);});},
+    defaite:function(){[392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.22,'sine',0.12);},i*120);});},
+    piece:function(){tone(988,0.08,'triangle',0.12,1400);},
+    tick:function(){tone(300,0.03,'square',0.05);},
+    estMuet:function(){return muet;},
+    toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+  };
+})();
+// Bouton mute (à placer dans le header de chaque jeu)
+function initBoutonSon(id){
+  var b=document.getElementById(id);
+  if(!b)return;
+  function maj(){b.textContent=SFX.estMuet()?'🔇':'🔊';}
+  maj();
+  b.addEventListener('click',function(){SFX.toggle();maj();});
+}
+// Confetti simple (petites particules colorées, pour les écrans de victoire)
+function confetti(canvas,ctx,cx,cy){
+  var parts=[];
+  var couleurs=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<24;i++){
+    var a=Math.random()*Math.PI*2,v=2+Math.random()*3;
+    parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,g:0.12,vie:1,col:couleurs[i%couleurs.length],taille:3+Math.random()*3});
+  }
+  return parts;
+}
+function drawConfetti(ctx,parts,dt){
+  for(var i=parts.length-1;i>=0;i--){
+    var p=parts[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vie-=0.018*dt;
+    if(p.vie<=0){parts.splice(i,1);continue;}
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.taille/2,p.y-p.taille/2,p.taille,p.taille);
+    ctx.globalAlpha=1;
+  }
+}
+
+
+function domConfetti(){
+  const colors=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(let i=0;i<28;i++){
+    const el=document.createElement('div');
+    const size=4+Math.random()*4;
+    el.style.cssText='position:fixed;z-index:60;pointer-events:none;border-radius:2px;';
+    el.style.width=size+'px';el.style.height=size+'px';
+    el.style.background=colors[i%colors.length];
+    el.style.left=(window.innerWidth/2+(Math.random()-0.5)*60)+'px';
+    el.style.top='38%';
+    document.body.appendChild(el);
+    const dx=(Math.random()-0.5)*260, dy=200+Math.random()*220, rot=Math.random()*720-360;
+    const dur=900+Math.random()*500;
+    el.animate([
+      {transform:'translate(0,0) rotate(0deg)',opacity:1},
+      {transform:'translate('+dx+'px,'+dy+'px) rotate('+rot+'deg)',opacity:0}
+    ],{duration:dur,easing:'cubic-bezier(.25,.46,.45,.94)'});
+    setTimeout(()=>el.remove(),dur+50);
+  }
+}
+initBoutonSon("btnSon");
+
+const cvs=document.getElementById('c'), ctx=cvs.getContext('2d');
+const scoreEl=document.getElementById('score'), nivEl=document.getElementById('niv'),
+      viesEl=document.getElementById('vies');
+const msg=document.getElementById('msg');
+const fin=document.getElementById('fin'), finTitre=document.getElementById('finTitre'),
+      finTexte=document.getElementById('finTexte');
+let W=0,H=0,DPR=1;
+let confettiParts=[];
+
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  const r=cvs.parentElement.getBoundingClientRect();
+  W=r.width-24; H=r.height-8;
+  cvs.style.width=W+'px'; cvs.style.height=H+'px';
+  cvs.width=W*DPR; cvs.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize',resize);
+
+// ---- État ----
+const COULEURS=['#E32219','#F28C1B','#F5C21B','#128a44','#3d5a80'];
+let paddle, ball, bricks, score=0, vies=3, niveau=1, launched=false, playing=true;
+
+function reset(full){
+  if(full){score=0;vies=3;niveau=1;scoreEl.textContent='0';}
+  nivEl.textContent=niveau;
+  viesEl.textContent='❤'.repeat(vies);
+  paddle={w:Math.max(70,W*0.24), h:12, x:W/2, y:H-40};
+  serveBall();
+  buildWall();
+  playing=true;
+}
+
+function serveBall(){
+  ball={x:W/2, y:H-58, r:8, vx:0, vy:0};
+  launched=false;
+}
+
+function buildWall(){
+  bricks=[];
+  const cols=7, rows=Math.min(5+niveau,8);
+  const gap=5, top=14;
+  const bw=(W-24-(cols-1)*gap)/cols, bh=18;
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    // niveaux : quelques trous pour varier
+    if(niveau>1 && (r*7+c+niveau)%9===0) continue;
+    bricks.push({x:12+c*(bw+gap), y:top+r*(bh+gap), w:bw, h:bh,
+                 col:COULEURS[r%COULEURS.length],
+                 dur:(r<2&&niveau>2)?2:1}); // rangées hautes plus dures aux niveaux avancés
+  }
+}
+
+// ---- Logique ----
+function step(dt){
+  if(!playing)return;
+  if(!launched){ball.x=paddle.x;return;}
+
+  ball.x+=ball.vx*dt;
+  ball.y+=ball.vy*dt;
+
+  // murs
+  if(ball.x-ball.r<0){ball.x=ball.r;ball.vx=Math.abs(ball.vx);}
+  if(ball.x+ball.r>W){ball.x=W-ball.r;ball.vx=-Math.abs(ball.vx);}
+  if(ball.y-ball.r<0){ball.y=ball.r;ball.vy=Math.abs(ball.vy);}
+
+  // raquette
+  if(ball.vy>0 && ball.y+ball.r>paddle.y && ball.y+ball.r<paddle.y+paddle.h+10 &&
+     Math.abs(ball.x-paddle.x)<paddle.w/2+ball.r){
+    const rel=(ball.x-paddle.x)/(paddle.w/2); // -1..1
+    const sp=Math.hypot(ball.vx,ball.vy);
+    const ang=rel*1.05; // angle max ~60°
+    ball.vx=Math.sin(ang)*sp;
+    ball.vy=-Math.abs(Math.cos(ang)*sp);
+    ball.y=paddle.y-ball.r;
+  }
+
+  // sortie en bas
+  if(ball.y-ball.r>H){
+    vies--;
+    viesEl.textContent='❤'.repeat(Math.max(0,vies));
+    if(vies<=0){return gameOver(false);}
+    msg.textContent="💔 Balle perdue ! Touche pour relancer";
+    serveBall();
+    return;
+  }
+
+  // briques
+  for(let i=bricks.length-1;i>=0;i--){
+    const b=bricks[i];
+    if(ball.x+ball.r>b.x && ball.x-ball.r<b.x+b.w &&
+       ball.y+ball.r>b.y && ball.y-ball.r<b.y+b.h){
+      // côté de rebond
+      const ox=Math.min(ball.x+ball.r-b.x, b.x+b.w-(ball.x-ball.r));
+      const oy=Math.min(ball.y+ball.r-b.y, b.y+b.h-(ball.y-ball.r));
+      if(ox<oy) ball.vx=-ball.vx; else ball.vy=-ball.vy;
+      b.dur--;
+      if(b.dur<=0){
+        bricks.splice(i,1);
+        score+=10;
+        SFX.bon();
+      }else{
+        score+=5;
+        SFX.tap();
+      }
+      scoreEl.textContent=score;
+      break;
+    }
+  }
+
+  if(bricks.length===0){
+    niveau++;
+    msg.textContent="🎉 Niveau "+niveau+" ! Touche pour lancer";
+    SFX.piece();
+    reset(false);
+  }
+}
+
+function launch(){
+  if(launched||!playing)return;
+  launched=true;
+  const sp=4.4+niveau*0.4;
+  const a=(Math.random()*0.6-0.3);
+  ball.vx=Math.sin(a)*sp; ball.vy=-Math.cos(a)*sp;
+  msg.textContent="Casse tout le mur !";
+}
+
+function gameOver(win){
+  playing=false;
+  finTitre.textContent=score+" pts";
+  finTexte.textContent = score>=800 ? "Démolisseur en chef ! Le classement hebdo t'attend."
+                   : score>=300 ? "Beau chantier ! Encore quelques murs et tu montes au classement."
+                   : "Le mur a gagné cette fois... Rejoue et prends ta revanche !";
+  if(score>=800){SFX.victoire();confettiParts=confetti(cvs,ctx,W/2,H*0.35);}else{SFX.defaite();}
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Briques',score:Math.round(score*0.5),victoire:score>=800},'*');}catch(e){}}
+  fin.style.display='flex';
+}
+
+document.getElementById('rejouer').addEventListener('click',()=>{
+  fin.style.display='none';confettiParts=[];reset(true);
+  msg.textContent="Glisse le doigt pour bouger la raquette";
+});
+
+// ---- Rendu ----
+function draw(){
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#1b2a4a');g.addColorStop(1,'#0f1d33');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+
+  // briques
+  for(const b of bricks){
+    ctx.fillStyle=b.col;
+    ctx.beginPath();ctx.roundRect(b.x,b.y,b.w,b.h,4);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,'+(b.dur>1?0.35:0.15)+')';
+    ctx.beginPath();ctx.roundRect(b.x+2,b.y+2,b.w-4,5,3);ctx.fill();
+  }
+
+  // raquette
+  ctx.fillStyle='#F5C21B';
+  ctx.beginPath();ctx.roundRect(paddle.x-paddle.w/2,paddle.y,paddle.w,paddle.h,7);ctx.fill();
+  ctx.fillStyle='#E32219';
+  ctx.beginPath();ctx.roundRect(paddle.x-10,paddle.y,20,paddle.h,7);ctx.fill();
+
+  // balle
+  ctx.fillStyle='#FAF7EF';
+  ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,7);ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.2)';
+  ctx.beginPath();ctx.arc(ball.x+2,ball.y+2,ball.r*0.5,0,7);ctx.fill();
+
+  if(!launched&&playing){
+    ctx.fillStyle='rgba(245,194,27,.85)';
+    ctx.font='12px Arial';
+    ctx.textAlign='center';
+    ctx.fillText('▲ touche pour lancer ▲',W/2,paddle.y-24);
+  }
+}
+
+// ---- Entrées ----
+function steer(clientX){
+  const r=cvs.getBoundingClientRect();
+  paddle.x=Math.max(paddle.w/2,Math.min(W-paddle.w/2,clientX-r.left));
+}
+cvs.addEventListener('touchstart',e=>{steer(e.touches[0].clientX);launch();e.preventDefault();},{passive:false});
+cvs.addEventListener('touchmove',e=>{steer(e.touches[0].clientX);e.preventDefault();},{passive:false});
+let mdown=false;
+cvs.addEventListener('mousedown',e=>{mdown=true;steer(e.clientX);launch();});
+window.addEventListener('mousemove',e=>{if(mdown)steer(e.clientX);});
+window.addEventListener('mouseup',()=>{mdown=false;});
+window.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft')steer(cvs.getBoundingClientRect().left+paddle.x-40);
+  if(e.key==='ArrowRight')steer(cvs.getBoundingClientRect().left+paddle.x+40);
+  if(e.code==='Space')launch();
+});
+
+// ---- Boucle ----
+let last=0;
+function loop(now){
+  const dt=Math.min(2.5,(now-last)/16.7); last=now;
+  step(dt);
+  draw();
+  if(confettiParts.length)drawConfetti(ctx,confettiParts,dt);
+  requestAnimationFrame(loop);
+}
+window.__briques={state:()=>({score,playing,confettiN:confettiParts.length,muet:SFX.estMuet()}),
+  forcerVictoire:()=>{score=850;gameOver();}};
+resize();reset(true);
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

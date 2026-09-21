@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Démineur Faso</title>
+<style>
+  :root{--vert:#0E7A3C;--rouge:#E32219;--or:#F5C21B;--nuit:#12130F;--craie:#FAF7EF;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:var(--nuit);font-family:"Arial Black","Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;}
+  header{width:100%;max-width:430px;padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-size:20px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial,sans-serif;font-weight:400;font-size:9px;letter-spacing:3px;color:#8b8f84;margin-top:3px;}
+  .scores{text-align:right;line-height:1.25;}
+  .scores .val{font-size:20px;color:var(--or);}
+  .scores .lbl{font-family:Arial,sans-serif;font-size:9px;letter-spacing:2px;color:#8b8f84;}
+  #modeBtn{display:block;margin:0 auto;background:#1d1f19;border:1px solid #57594f;color:var(--craie);
+    border-radius:999px;padding:8px 18px;font-family:inherit;font-size:13px;letter-spacing:.5px;}
+  #modeBtn.pose{background:var(--or);color:var(--nuit);border-color:var(--or);}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;justify-content:center;align-items:center;padding:6px 12px 4px;}
+  canvas{display:block;border-radius:14px;}
+  #fin{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,19,15,.88);text-align:center;padding:24px;border-radius:14px;}
+  #fin h2{font-size:30px;color:var(--or);margin-bottom:6px;}
+  #fin p{font-family:Arial,sans-serif;font-size:14px;color:#c9ccc0;margin-bottom:20px;line-height:1.5;}
+  #fin button{font-family:inherit;font-size:16px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:14px 34px;}
+  #fin button:active{transform:scale(.96);}
+  footer{width:100%;max-width:430px;padding:6px 16px 12px;text-align:center;
+    font-family:Arial,sans-serif;font-size:11px;color:#6c7064;letter-spacing:.5px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DÉMINEUR <span>FASO</span><small>ÉVITE LES MINES</small></div>
+  <div style="display:flex;align-items:center;gap:0"><button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:32px;height:32px;font-size:14px;margin-right:8px">🔊</button>
+<div class="scores"><div class="val">💣 <span id="mines">10</span></div>
+  <div class="lbl">TEMPS <span id="temps">0</span> s</div></div>
+</div>
+</header>
+<button id="modeBtn">👆 Mode : Révéler</button>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="fin"><h2 id="finTitre"></h2><p id="finTexte"></p><button id="rejouer">REJOUER</button></div>
+</div>
+<footer>Appui long = poser un drapeau · Démo VAS — classement hebdo à venir</footer>
+<script>
+(function(){
+"use strict";
+// ===== Kit sonore Faso Games (synthétisé, 0 Ko d'assets, silencieux par défaut respecté) =====
+var SFX=(function(){
+  var ctx,muet=false;
+  try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+  function ac(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();return ctx;}
+  function tone(freq,dur,type,vol,glide){
+    if(muet)return;
+    try{
+      var c=ac();var o=c.createOscillator();var g=c.createGain();
+      o.type=type||'sine';o.frequency.value=freq;
+      if(glide)o.frequency.linearRampToValueAtTime(glide,c.currentTime+dur);
+      g.gain.value=vol||0.15;
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+      o.connect(g);g.connect(c.destination);
+      o.start();o.stop(c.currentTime+dur);
+    }catch(e){}
+  }
+  return{
+    tap:function(){tone(440,0.05,'square',0.08);},
+    bon:function(){tone(523,0.09,'sine',0.14);setTimeout(function(){tone(784,0.12,'sine',0.14);},70);},
+    mauvais:function(){tone(160,0.22,'sawtooth',0.12,90);},
+    victoire:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.15);},i*90);});},
+    defaite:function(){[392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.22,'sine',0.12);},i*120);});},
+    piece:function(){tone(988,0.08,'triangle',0.12,1400);},
+    tick:function(){tone(300,0.03,'square',0.05);},
+    estMuet:function(){return muet;},
+    toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+  };
+})();
+// Bouton mute (à placer dans le header de chaque jeu)
+function initBoutonSon(id){
+  var b=document.getElementById(id);
+  if(!b)return;
+  function maj(){b.textContent=SFX.estMuet()?'🔇':'🔊';}
+  maj();
+  b.addEventListener('click',function(){SFX.toggle();maj();});
+}
+// Confetti simple (petites particules colorées, pour les écrans de victoire)
+function confetti(canvas,ctx,cx,cy){
+  var parts=[];
+  var couleurs=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<24;i++){
+    var a=Math.random()*Math.PI*2,v=2+Math.random()*3;
+    parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,g:0.12,vie:1,col:couleurs[i%couleurs.length],taille:3+Math.random()*3});
+  }
+  return parts;
+}
+function drawConfetti(ctx,parts,dt){
+  for(var i=parts.length-1;i>=0;i--){
+    var p=parts[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vie-=0.018*dt;
+    if(p.vie<=0){parts.splice(i,1);continue;}
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.taille/2,p.y-p.taille/2,p.taille,p.taille);
+    ctx.globalAlpha=1;
+  }
+}
+initBoutonSon("btnSon");
+
+const N=9, MINES=10;
+const cvs=document.getElementById('c'),ctx=cvs.getContext('2d');
+const minesEl=document.getElementById('mines'),tempsEl=document.getElementById('temps');
+const modeBtn=document.getElementById('modeBtn');
+const fin=document.getElementById('fin'),finTitre=document.getElementById('finTitre'),finTexte=document.getElementById('finTexte');
+let S=0,DPR=1,cell=0,ox=0,oy=0;
+let confettiParts=[];
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  const r=cvs.parentElement.getBoundingClientRect();
+  S=Math.min(r.width-24,r.height-16);
+  cvs.style.width=S+'px';cvs.style.height=S+'px';
+  cvs.width=S*DPR;cvs.height=S*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  cell=S/N; ox=0; oy=0;
+}
+window.addEventListener('resize',resize);
+
+let grid, revele, drapeau, premierClic, over, gagne, drapeauxPoses, t0, chrono, modeDrapeau=false;
+const NUMCOL=['','#3d5a80','#128a44','#E32219','#1b2a4a','#8a5a33','#0E7A3C','#12130F','#57594f'];
+
+function reset(){
+  grid=Array.from({length:N},()=>new Array(N).fill(0));
+  revele=Array.from({length:N},()=>new Array(N).fill(false));
+  drapeau=Array.from({length:N},()=>new Array(N).fill(false));
+  premierClic=true;over=false;gagne=false;drapeauxPoses=0;chrono=0;t0=0;
+  minesEl.textContent=MINES;tempsEl.textContent='0';
+  modeDrapeau=false;majMode();
+  fin.style.display='none';confettiParts=[];
+}
+function placerMines(sr,sc){
+  let pose=0;
+  while(pose<MINES){
+    const r=Math.floor(Math.random()*N),c=Math.floor(Math.random()*N);
+    if(grid[r][c]===-1)continue;
+    if(Math.abs(r-sr)<=1&&Math.abs(c-sc)<=1)continue; // zone de départ sûre
+    grid[r][c]=-1;pose++;
+  }
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    if(grid[r][c]===-1)continue;
+    let n=0;
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+      const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<N&&nc>=0&&nc<N&&grid[nr][nc]===-1)n++;
+    }
+    grid[r][c]=n;
+  }
+}
+function reveler(r,c){
+  if(r<0||r>=N||c<0||c>=N||revele[r][c]||drapeau[r][c])return;
+  revele[r][c]=true;
+  if(grid[r][c]===0){
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)reveler(r+dr,c+dc);
+  }
+}
+function verifGagne(){
+  let cachees=0;
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(!revele[r][c])cachees++;
+  return cachees===MINES;
+}
+function finPartie(win){
+  over=true;gagne=win;
+  if(!win){for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(grid[r][c]===-1)revele[r][c]=true;}
+  finTitre.textContent=win?'🏆 DÉMINÉ !':'💥 BOOM !';
+  finTexte.textContent=win?"Champ sécurisé en "+chrono+" s ! Le classement hebdo t'attend."
+    :"Tu as marché sur une mine... Utilise les chiffres pour deviner et rejoue !";
+  if(win){SFX.victoire();confettiParts=confetti(cvs,ctx,S/2,S*0.4);}else{SFX.mauvais();}
+  var scoreEnvoi=win?Math.max(180,520-chrono*3):90;
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Démineur',score:scoreEnvoi,victoire:win},'*');}catch(e){}}
+  setTimeout(()=>{fin.style.display='flex';},win?300:600);
+}
+function majMode(){
+  modeBtn.textContent=modeDrapeau?'🚩 Mode : Drapeau':'👆 Mode : Révéler';
+  modeBtn.classList.toggle('pose',modeDrapeau);
+}
+modeBtn.addEventListener('click',()=>{modeDrapeau=!modeDrapeau;majMode();});
+
+document.getElementById('rejouer').addEventListener('click',reset);
+
+function action(r,c,forceDrapeau){
+  if(over||r<0||r>=N||c<0||c>=N)return;
+  const drap=forceDrapeau||modeDrapeau;
+  if(drap){
+    if(revele[r][c])return;
+    drapeau[r][c]=!drapeau[r][c];
+    drapeauxPoses+=drapeau[r][c]?1:-1;
+    minesEl.textContent=Math.max(0,MINES-drapeauxPoses);
+    return;
+  }
+  if(drapeau[r][c])return;
+  if(premierClic){premierClic=false;placerMines(r,c);t0=Date.now();}
+  if(grid[r][c]===-1){revele[r][c]=true;return finPartie(false);}
+  SFX.tap();
+  reveler(r,c);
+  if(verifGagne())finPartie(true);
+}
+
+// appui long = drapeau
+let touchT=null, touchRC=null, longRes=false;
+function rcAt(x,y){return [Math.floor(y/cell),Math.floor(x/cell)];}
+cvs.addEventListener('touchstart',e=>{
+  const r=cvs.getBoundingClientRect();
+  const [rr,cc]=rcAt(e.touches[0].clientX-r.left,e.touches[0].clientY-r.top);
+  touchRC=[rr,cc];longRes=false;
+  touchT=setTimeout(()=>{longRes=true;action(rr,cc,true);if(navigator.vibrate)navigator.vibrate(40);},350);
+  e.preventDefault();
+},{passive:false});
+cvs.addEventListener('touchend',e=>{
+  clearTimeout(touchT);
+  if(!longRes&&touchRC)action(touchRC[0],touchRC[1],false);
+  touchRC=null;e.preventDefault();
+},{passive:false});
+cvs.addEventListener('mousedown',e=>{
+  const r=cvs.getBoundingClientRect();
+  const [rr,cc]=rcAt(e.clientX-r.left,e.clientY-r.top);
+  action(rr,cc,e.button===2);
+});
+cvs.addEventListener('contextmenu',e=>e.preventDefault());
+
+function draw(){
+  if(!premierClic&&!over){chrono=Math.floor((Date.now()-t0)/1000);tempsEl.textContent=chrono;}
+  ctx.fillStyle='#0A5C2D';ctx.fillRect(0,0,S,S);
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    const x=c*cell,y=r*cell;
+    const pair=(r+c)%2===0;
+    if(revele[r][c]){
+      if(grid[r][c]===-1){
+        ctx.fillStyle=gagne?'#128a44':'#E32219';
+        ctx.fillRect(x,y,cell,cell);
+        ctx.fillStyle='#12130F';
+        ctx.beginPath();ctx.arc(x+cell/2,y+cell/2,cell*0.26,0,7);ctx.fill();
+        ctx.strokeStyle='#12130F';ctx.lineWidth=2;
+        for(let a=0;a<8;a++){const an=a*Math.PI/4;
+          ctx.beginPath();ctx.moveTo(x+cell/2,y+cell/2);
+          ctx.lineTo(x+cell/2+Math.cos(an)*cell*0.36,y+cell/2+Math.sin(an)*cell*0.36);ctx.stroke();}
+      }else{
+        ctx.fillStyle=pair?'#d8c7a8':'#cbb897';
+        ctx.fillRect(x,y,cell,cell);
+        if(grid[r][c]>0){
+          ctx.fillStyle=NUMCOL[grid[r][c]];
+          ctx.font='bold '+Math.round(cell*0.5)+'px Arial';
+          ctx.textAlign='center';ctx.textBaseline='middle';
+          ctx.fillText(grid[r][c],x+cell/2,y+cell/2+1);
+        }
+      }
+    }else{
+      ctx.fillStyle=pair?'#0E7A3C':'#0c6f37';
+      ctx.beginPath();ctx.roundRect(x+1,y+1,cell-2,cell-2,4);ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.12)';
+      ctx.beginPath();ctx.roundRect(x+3,y+3,cell-6,cell*0.3,3);ctx.fill();
+      if(drapeau[r][c]){
+        ctx.strokeStyle='#12130F';ctx.lineWidth=2;
+        ctx.beginPath();ctx.moveTo(x+cell*0.4,y+cell*0.28);ctx.lineTo(x+cell*0.4,y+cell*0.72);ctx.stroke();
+        ctx.fillStyle='#E32219';
+        ctx.beginPath();ctx.moveTo(x+cell*0.4,y+cell*0.28);ctx.lineTo(x+cell*0.68,y+cell*0.38);
+        ctx.lineTo(x+cell*0.4,y+cell*0.48);ctx.closePath();ctx.fill();
+      }
+    }
+    ctx.strokeStyle='rgba(0,0,0,.12)';ctx.lineWidth=1;
+    ctx.strokeRect(x,y,cell,cell);
+  }
+}
+window.__mine={state:()=>({over,gagne,premierClic,drapeaux:drapeauxPoses,confettiN:confettiParts.length,muet:SFX.estMuet()}),
+  jouer:(r,c)=>action(r,c,false),grid:()=>grid,revele:()=>revele,
+  // révèle une case sûre au hasard (pour tests)
+  coupSur:()=>{
+    for(let r=0;r<N;r++)for(let c=0;c<N;c++)
+      if(!revele[r][c]&&grid[r][c]!==-1&&!premierClic){action(r,c,false);return true;}
+    return false;
+  }};
+let last=0;
+function loop(now){
+  draw();
+  const dt=last?Math.min(2.5,(now-last)/16.7):1;last=now;
+  if(confettiParts.length)drawConfetti(ctx,confettiParts,dt);
+  requestAnimationFrame(loop);
+}
+resize();reset();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

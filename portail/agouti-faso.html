@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Tape-agouti Faso</title>
+<style>
+  :root{--vert:#0E7A3C;--rouge:#E32219;--or:#F5C21B;--nuit:#12130F;--craie:#FAF7EF;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:var(--nuit);font-family:"Arial Black","Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;}
+  header{width:100%;max-width:430px;padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-size:20px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial,sans-serif;font-weight:400;font-size:9px;letter-spacing:3px;color:#8b8f84;margin-top:3px;}
+  .scores{text-align:right;line-height:1.25;}
+  .scores .val{font-size:20px;color:var(--or);}
+  .scores .lbl{font-family:Arial,sans-serif;font-size:9px;letter-spacing:2px;color:#8b8f84;}
+  #msg{height:26px;font-size:14px;letter-spacing:.5px;text-align:center;color:var(--or);}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;justify-content:center;padding:0 12px 4px;}
+  canvas{display:block;border-radius:14px;}
+  #fin{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,19,15,.88);text-align:center;padding:24px;border-radius:14px;}
+  #fin h2{font-size:30px;color:var(--or);margin-bottom:6px;}
+  #fin p{font-family:Arial,sans-serif;font-size:14px;color:#c9ccc0;margin-bottom:20px;line-height:1.5;}
+  #fin button{font-family:inherit;font-size:16px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:14px 34px;}
+  #fin button:active{transform:scale(.96);}
+  footer{width:100%;max-width:430px;padding:8px 16px 14px;text-align:center;
+    font-family:Arial,sans-serif;font-size:11px;color:#6c7064;letter-spacing:.5px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">TAPE-AGOUTI <span>FASO</span><small>45 SECONDES CHRONO</small></div>
+  <div style="display:flex;align-items:center;gap:0"><button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:32px;height:32px;font-size:14px;margin-right:8px">🔊</button>
+<div class="scores"><div class="val" id="score">0</div>
+  <div class="lbl">TEMPS <span id="time">45</span> s</div></div>
+</div>
+</header>
+<div id="msg">Touche un trou pour commencer 🦫</div>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="fin"><h2 id="finTitre"></h2><p id="finTexte"></p><button id="rejouer">REJOUER</button></div>
+</div>
+<footer>Démo VAS — classement hebdo &amp; lots airtime à venir</footer>
+<script>
+(function(){
+"use strict";
+// ===== Kit sonore Faso Games (synthétisé, 0 Ko d'assets, silencieux par défaut respecté) =====
+var SFX=(function(){
+  var ctx,muet=false;
+  try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+  function ac(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();return ctx;}
+  function tone(freq,dur,type,vol,glide){
+    if(muet)return;
+    try{
+      var c=ac();var o=c.createOscillator();var g=c.createGain();
+      o.type=type||'sine';o.frequency.value=freq;
+      if(glide)o.frequency.linearRampToValueAtTime(glide,c.currentTime+dur);
+      g.gain.value=vol||0.15;
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+      o.connect(g);g.connect(c.destination);
+      o.start();o.stop(c.currentTime+dur);
+    }catch(e){}
+  }
+  return{
+    tap:function(){tone(440,0.05,'square',0.08);},
+    bon:function(){tone(523,0.09,'sine',0.14);setTimeout(function(){tone(784,0.12,'sine',0.14);},70);},
+    mauvais:function(){tone(160,0.22,'sawtooth',0.12,90);},
+    victoire:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.15);},i*90);});},
+    defaite:function(){[392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.22,'sine',0.12);},i*120);});},
+    piece:function(){tone(988,0.08,'triangle',0.12,1400);},
+    tick:function(){tone(300,0.03,'square',0.05);},
+    estMuet:function(){return muet;},
+    toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+  };
+})();
+// Bouton mute (à placer dans le header de chaque jeu)
+function initBoutonSon(id){
+  var b=document.getElementById(id);
+  if(!b)return;
+  function maj(){b.textContent=SFX.estMuet()?'🔇':'🔊';}
+  maj();
+  b.addEventListener('click',function(){SFX.toggle();maj();});
+}
+// Confetti simple (petites particules colorées, pour les écrans de victoire)
+function confetti(canvas,ctx,cx,cy){
+  var parts=[];
+  var couleurs=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<24;i++){
+    var a=Math.random()*Math.PI*2,v=2+Math.random()*3;
+    parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,g:0.12,vie:1,col:couleurs[i%couleurs.length],taille:3+Math.random()*3});
+  }
+  return parts;
+}
+function drawConfetti(ctx,parts,dt){
+  for(var i=parts.length-1;i>=0;i--){
+    var p=parts[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vie-=0.018*dt;
+    if(p.vie<=0){parts.splice(i,1);continue;}
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.taille/2,p.y-p.taille/2,p.taille,p.taille);
+    ctx.globalAlpha=1;
+  }
+}
+initBoutonSon("btnSon");
+
+const cvs=document.getElementById('c'),ctx=cvs.getContext('2d');
+const scoreEl=document.getElementById('score'),timeEl=document.getElementById('time');
+const msg=document.getElementById('msg'),fin=document.getElementById('fin');
+const finTitre=document.getElementById('finTitre'),finTexte=document.getElementById('finTexte');
+let W=0,H=0,DPR=1,holes=[];
+let confettiParts=[];
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  const r=cvs.parentElement.getBoundingClientRect();
+  W=r.width-24;H=r.height-8;
+  cvs.style.width=W+'px';cvs.style.height=H+'px';
+  cvs.width=W*DPR;cvs.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  holes=[];
+  const cw=W/3,ch=(H-50)/3;
+  for(let r2=0;r2<3;r2++)for(let c=0;c<3;c++){
+    holes.push({x:cw*(c+0.5),y:40+ch*(r2+0.55),rx:Math.min(cw*0.36,54),ry:17,
+      occ:null,up:0,dur:0,splash:0,txt:''});
+  }
+}
+window.addEventListener('resize',resize);
+let score=0,timeLeft=45,started=false,over=false,spawnT=0,t=0;
+function reset(){
+  score=0;timeLeft=45;started=false;over=false;spawnT=20;t=0;
+  scoreEl.textContent='0';timeEl.textContent='45';
+  for(const h of holes){h.occ=null;h.up=0;h.splash=0;}
+  msg.textContent="Touche un trou pour commencer 🦫";
+}
+function spawn(){
+  const libre=holes.filter(h=>!h.occ);
+  if(!libre.length)return;
+  const h=libre[Math.floor(Math.random()*libre.length)];
+  const r=Math.random();
+  h.occ=r<0.68?'agouti':r<0.82?'dore':'serpent';
+  h.up=0;
+  h.dur=Math.max(38,80-t*0.9)+Math.random()*30;
+}
+function step(dt){
+  for(const h of holes){
+    if(h.splash>0)h.splash-=dt;
+    if(!h.occ)continue;
+    h.dur-=dt;
+    if(h.dur>14)h.up=Math.min(1,h.up+0.15*dt);
+    else h.up=Math.max(0,h.up-0.12*dt);
+    if(h.dur<=0)h.occ=null;
+  }
+  if(!started||over)return;
+  t+=dt/60;
+  timeLeft-=dt/60;
+  if(timeLeft<=0){timeLeft=0;return endGame();}
+  timeEl.textContent=Math.ceil(timeLeft);
+  spawnT-=dt;
+  if(spawnT<=0){
+    spawn();
+    if(Math.random()<Math.min(0.5,t*0.02))spawn();
+    spawnT=Math.max(16,48-t*1.4)+Math.random()*18;
+  }
+}
+function endGame(){
+  over=true;
+  finTitre.textContent=score+" pts";
+  finTexte.textContent=score>=350?"Réflexes de mangouste ! Le classement hebdo t'attend."
+    :score>=180?"Belle chasse ! Vise les agoutis dorés pour grimper."
+    :"Les agoutis ont été plus rapides... Rejoue et venge-toi !";
+  if(score>=350){SFX.victoire();confettiParts=confetti(cvs,ctx,W/2,H*0.35);}else{SFX.tap();}
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Tape-agouti',score:Math.round(score*1.1),victoire:score>=350},'*');}catch(e){}}
+  fin.style.display='flex';
+}
+document.getElementById('rejouer').addEventListener('click',()=>{fin.style.display='none';confettiParts=[];reset();});
+function tap(cx,cy){
+  if(over)return;
+  if(!started){started=true;msg.textContent="Tape les agoutis, évite les serpents !";}
+  const rct=cvs.getBoundingClientRect();
+  const x=cx-rct.left,y=cy-rct.top;
+  for(const h of holes){
+    if(Math.abs(x-h.x)<h.rx+8&&y>h.y-72&&y<h.y+28){
+      if(h.occ&&h.up>0.35){
+        if(h.occ==='serpent'){
+          score=Math.max(0,score-20);h.txt='-20';
+          msg.textContent="🐍 Aïe, un serpent !";
+          SFX.mauvais();
+        }else if(h.occ==='dore'){
+          score+=30;h.txt='+30';msg.textContent="✨ Agouti doré !";
+          SFX.piece();
+        }else{
+          score+=10;h.txt='+10';
+          SFX.bon();
+        }
+        scoreEl.textContent=score;
+        h.occ=null;h.up=0;h.splash=22;
+      }
+      return;
+    }
+  }
+}
+cvs.addEventListener('touchstart',e=>{tap(e.touches[0].clientX,e.touches[0].clientY);e.preventDefault();},{passive:false});
+cvs.addEventListener('mousedown',e=>{tap(e.clientX,e.clientY);});
+function draw(){
+  ctx.fillStyle='#164a2b';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#0A5C2D';
+  for(let g=0;g<40;g++){
+    ctx.fillRect((g*89)%W,(g*53)%H,2,7);
+  }
+  for(const h of holes){
+    ctx.fillStyle='#5a3a1f';
+    ctx.beginPath();ctx.ellipse(h.x,h.y+4,h.rx+6,h.ry+5,0,0,7);ctx.fill();
+    ctx.fillStyle='#181a15';
+    ctx.beginPath();ctx.ellipse(h.x,h.y,h.rx,h.ry,0,0,7);ctx.fill();
+    if(h.occ&&h.up>0.02){
+      const lift=h.up*56;
+      ctx.save();
+      ctx.beginPath();ctx.rect(h.x-h.rx-10,h.y-84,h.rx*2+20,84);ctx.clip();
+      const by=h.y-lift+32;
+      if(h.occ==='serpent'){
+        ctx.strokeStyle='#128a44';ctx.lineWidth=13;ctx.lineCap='round';
+        ctx.beginPath();
+        ctx.moveTo(h.x,h.y+6);
+        ctx.quadraticCurveTo(h.x-12,by+20,h.x,by+8);
+        ctx.stroke();
+        ctx.fillStyle='#128a44';
+        ctx.beginPath();ctx.ellipse(h.x,by,11,9,0,0,7);ctx.fill();
+        ctx.fillStyle='#E32219';
+        ctx.fillRect(h.x-1.5,by-16,3,9);
+        ctx.fillStyle='#FAF7EF';
+        ctx.beginPath();ctx.arc(h.x-4,by-3,2.2,0,7);ctx.fill();
+        ctx.beginPath();ctx.arc(h.x+4,by-3,2.2,0,7);ctx.fill();
+        ctx.fillStyle='#12130F';
+        ctx.beginPath();ctx.arc(h.x-4,by-3,1.1,0,7);ctx.fill();
+        ctx.beginPath();ctx.arc(h.x+4,by-3,1.1,0,7);ctx.fill();
+      }else{
+        const corps=h.occ==='dore'?'#F5C21B':'#8a5a33';
+        const ventre=h.occ==='dore'?'#F28C1B':'#6e4525';
+        ctx.fillStyle=corps;
+        ctx.beginPath();ctx.ellipse(h.x,by+8,16,20,0,0,7);ctx.fill();
+        ctx.fillStyle=ventre;
+        ctx.beginPath();ctx.ellipse(h.x,by+14,9,11,0,0,7);ctx.fill();
+        ctx.fillStyle=corps;
+        ctx.beginPath();ctx.arc(h.x,by-8,12,0,7);ctx.fill();
+        ctx.beginPath();ctx.ellipse(h.x-9,by-18,4.5,7,-.3,0,7);ctx.fill();
+        ctx.beginPath();ctx.ellipse(h.x+9,by-18,4.5,7,.3,0,7);ctx.fill();
+        ctx.fillStyle='#12130F';
+        ctx.beginPath();ctx.arc(h.x-4.5,by-10,2.3,0,7);ctx.fill();
+        ctx.beginPath();ctx.arc(h.x+4.5,by-10,2.3,0,7);ctx.fill();
+        ctx.beginPath();ctx.ellipse(h.x,by-4,3,2.2,0,0,7);ctx.fill();
+        ctx.fillStyle='#FAF7EF';
+        ctx.fillRect(h.x-2.5,by-2,2,4);
+        ctx.fillRect(h.x+0.5,by-2,2,4);
+      }
+      ctx.restore();
+    }
+    if(h.splash>0){
+      ctx.fillStyle=h.txt==='-20'?'#E32219':'#F5C21B';
+      ctx.globalAlpha=h.splash/22;
+      ctx.font='bold 17px "Arial Black"';ctx.textAlign='center';
+      ctx.fillText(h.txt,h.x,h.y-60-(22-h.splash));
+      ctx.globalAlpha=1;
+    }
+  }
+  if(started&&!over){
+    ctx.fillStyle='rgba(18,19,15,.5)';
+    ctx.beginPath();ctx.roundRect(W/2-60,8,120,14,7);ctx.fill();
+    ctx.fillStyle=timeLeft<10?'#E32219':'#F5C21B';
+    ctx.beginPath();ctx.roundRect(W/2-58,10,116*(timeLeft/45),10,5);ctx.fill();
+  }
+}
+window.__agouti={state:()=>({score,timeLeft,over,confettiN:confettiParts.length,muet:SFX.estMuet()}),tapHole:i=>{
+  const h=holes[i];if(h&&h.occ&&h.up>0.35)tap(cvs.getBoundingClientRect().left+h.x,cvs.getBoundingClientRect().top+h.y-40);
+},forcerVictoire:()=>{score=400;endGame();}};
+let last=0;
+function loop(now){
+  const dt=Math.min(2.5,(now-last)/16.7);last=now;
+  step(dt);draw();
+  if(confettiParts.length)drawConfetti(ctx,confettiParts,dt);
+  requestAnimationFrame(loop);
+}
+resize();reset();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

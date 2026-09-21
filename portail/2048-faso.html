@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>2048 Faso</title>
+<style>
+  :root{
+    --vert:#0E7A3C; --vert-fonce:#0A5C2D; --rouge:#E32219; --or:#F5C21B;
+    --nuit:#12130F; --craie:#FAF7EF;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    background:var(--nuit);
+    font-family:"Arial Black","Segoe UI",Arial,sans-serif;
+    color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;
+    overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;
+  }
+  header{
+    width:100%;max-width:430px;padding:12px 16px 8px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .logo{font-size:20px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial,sans-serif;font-weight:400;font-size:9px;letter-spacing:3px;color:#8b8f84;margin-top:3px;}
+  .scores{text-align:right;line-height:1.25;}
+  .scores .val{font-size:20px;color:var(--or);}
+  .scores .lbl{font-family:Arial,sans-serif;font-size:9px;letter-spacing:2px;color:#8b8f84;}
+  #msg{height:26px;font-size:14px;letter-spacing:.5px;text-align:center;color:var(--or);}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;justify-content:center;padding:0 12px 4px;}
+  canvas{display:block;border-radius:14px;}
+  #fin{
+    position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,19,15,.88);text-align:center;padding:24px;border-radius:14px;
+  }
+  #fin h2{font-size:30px;color:var(--or);margin-bottom:6px;}
+  #fin p{font-family:Arial,sans-serif;font-size:14px;color:#c9ccc0;margin-bottom:20px;line-height:1.5;}
+  #fin button{
+    font-family:inherit;font-size:16px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:14px 34px;
+  }
+  #fin button:active{transform:scale(.96);}
+  footer{
+    width:100%;max-width:430px;padding:8px 16px 14px;text-align:center;
+    font-family:Arial,sans-serif;font-size:11px;color:#6c7064;letter-spacing:.5px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">2048 <span>FASO</span><small>FUSIONNE JUSQU'À 2048</small></div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:32px;height:32px;font-size:14px">🔊</button>
+    <div class="scores">
+      <div class="val" id="score">0</div>
+      <div class="lbl">RECORD <span id="best">0</span></div>
+    </div>
+  </div>
+</header>
+<div id="msg">Glisse pour fusionner les tuiles</div>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="fin">
+    <h2 id="finTitre"></h2>
+    <p id="finTexte"></p>
+    <button id="rejouer">REJOUER</button>
+  </div>
+</div>
+<footer>Démo VAS — classement hebdo &amp; lots airtime à venir</footer>
+
+<script>
+(function(){
+"use strict";
+// ===== Kit sonore Faso Games (synthétisé, 0 Ko d'assets, silencieux par défaut respecté) =====
+var SFX=(function(){
+  var ctx,muet=false;
+  try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+  function ac(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();return ctx;}
+  function tone(freq,dur,type,vol,glide){
+    if(muet)return;
+    try{
+      var c=ac();var o=c.createOscillator();var g=c.createGain();
+      o.type=type||'sine';o.frequency.value=freq;
+      if(glide)o.frequency.linearRampToValueAtTime(glide,c.currentTime+dur);
+      g.gain.value=vol||0.15;
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+      o.connect(g);g.connect(c.destination);
+      o.start();o.stop(c.currentTime+dur);
+    }catch(e){}
+  }
+  return{
+    tap:function(){tone(440,0.05,'square',0.08);},
+    bon:function(){tone(523,0.09,'sine',0.14);setTimeout(function(){tone(784,0.12,'sine',0.14);},70);},
+    mauvais:function(){tone(160,0.22,'sawtooth',0.12,90);},
+    victoire:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.15);},i*90);});},
+    defaite:function(){[392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.22,'sine',0.12);},i*120);});},
+    piece:function(){tone(988,0.08,'triangle',0.12,1400);},
+    tick:function(){tone(300,0.03,'square',0.05);},
+    estMuet:function(){return muet;},
+    toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+  };
+})();
+// Bouton mute (à placer dans le header de chaque jeu)
+function initBoutonSon(id){
+  var b=document.getElementById(id);
+  if(!b)return;
+  function maj(){b.textContent=SFX.estMuet()?'🔇':'🔊';}
+  maj();
+  b.addEventListener('click',function(){SFX.toggle();maj();});
+}
+// Confetti simple (petites particules colorées, pour les écrans de victoire)
+function confetti(canvas,ctx,cx,cy){
+  var parts=[];
+  var couleurs=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<24;i++){
+    var a=Math.random()*Math.PI*2,v=2+Math.random()*3;
+    parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,g:0.12,vie:1,col:couleurs[i%couleurs.length],taille:3+Math.random()*3});
+  }
+  return parts;
+}
+function drawConfetti(ctx,parts,dt){
+  for(var i=parts.length-1;i>=0;i--){
+    var p=parts[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vie-=0.018*dt;
+    if(p.vie<=0){parts.splice(i,1);continue;}
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.taille/2,p.y-p.taille/2,p.taille,p.taille);
+    ctx.globalAlpha=1;
+  }
+}
+initBoutonSon("btnSon");
+const N=4;
+const cvs=document.getElementById('c'), ctx=cvs.getContext('2d');
+const scoreEl=document.getElementById('score'), bestEl=document.getElementById('best');
+const msg=document.getElementById('msg');
+const fin=document.getElementById('fin'), finTitre=document.getElementById('finTitre'),
+      finTexte=document.getElementById('finTexte');
+let W=0,H=0,DPR=1, S=0, ox=0, oy=0, cell=0, gap=0;
+let confettiParts=[];
+
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  const r=cvs.parentElement.getBoundingClientRect();
+  W=r.width-24; H=r.height-8;
+  cvs.style.width=W+'px'; cvs.style.height=H+'px';
+  cvs.width=W*DPR; cvs.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  S=Math.min(W-8,H-8);
+  gap=S*0.03; cell=(S-5*gap)/N;
+  ox=(W-S)/2; oy=(H-S)/2;
+}
+window.addEventListener('resize',resize);
+
+// ---- Couleurs des tuiles ----
+const STYLE={
+  2:   ['#FAF7EF','#12130F'], 4:   ['#F2E3B8','#12130F'],
+  8:   ['#F5C21B','#12130F'], 16:  ['#F28C1B','#12130F'],
+  32:  ['#E85A19','#FAF7EF'], 64:  ['#E32219','#FAF7EF'],
+  128: ['#128a44','#FAF7EF'], 256: ['#0E7A3C','#FAF7EF'],
+  512: ['#3d5a80','#FAF7EF'], 1024:['#1b2a4a','#F5C21B'],
+  2048:['#F5C21B','#12130F'],
+};
+function style(v){return STYLE[v]||['#12130F','#F5C21B'];}
+
+// ---- État ----
+// tuiles : {id, r, c, v, pr, pc, pop, merging}
+let tiles, score=0, best=0, nextId=1, animT=0, over=false, won=false;
+
+function reset(){
+  tiles=[]; score=0; nextId=1; animT=0; over=false; won=false;
+  scoreEl.textContent='0';
+  spawn(); spawn();
+  msg.textContent="Glisse pour fusionner les tuiles";
+}
+
+function grid(){
+  const g=Array.from({length:N},()=>new Array(N).fill(null));
+  for(const t of tiles)if(!t.merging)g[t.r][t.c]=t;
+  return g;
+}
+
+function spawn(){
+  const g=grid(), empty=[];
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(!g[r][c])empty.push([r,c]);
+  if(empty.length===0)return;
+  const [r,c]=empty[Math.floor(Math.random()*empty.length)];
+  tiles.push({id:nextId++, r, c, v:Math.random()<0.9?2:4, pr:r, pc:c, pop:1, merging:false});
+}
+
+// ---- Mouvement ----
+function move(dr,dc){
+  if(over||animT>0)return;
+  const g=grid();
+  let moved=false, gained=0;
+  // ordre de parcours : depuis le bord d'arrivée
+  const rs=[...Array(N).keys()], cs=[...Array(N).keys()];
+  if(dr===1)rs.reverse();
+  if(dc===1)cs.reverse();
+
+  for(const r of rs)for(const c of cs){
+    const t=g[r][c];
+    if(!t)continue;
+    let nr=r, nc=c;
+    while(true){
+      const tr=nr+dr, tc=nc+dc;
+      if(tr<0||tr>=N||tc<0||tc>=N)break;
+      const occ=g[tr][tc];
+      if(!occ){nr=tr;nc=tc;continue;}
+      if(occ.v===t.v&&!occ.justMerged&&!t.justMerged){
+        // fusion
+        g[r][c]=null;
+        t.pr=t.r;t.pc=t.c;
+        t.r=tr;t.c=tc;t.merging=true; // disparaîtra à la fin de l'anim
+        occ.v*=2; occ.justMerged=true; occ.popAt=1;
+        gained+=occ.v;
+        if(occ.v===2048&&!won){won=true;}
+        moved=true;
+        nr=null;
+        break;
+      }
+      break;
+    }
+    if(nr!==null&&(nr!==r||nc!==c)){
+      g[r][c]=null;g[nr][nc]=t;
+      t.pr=t.r;t.pc=t.c;
+      t.r=nr;t.c=nc;
+      moved=true;
+    }else if(nr!==null){
+      t.pr=t.r;t.pc=t.c;
+    }
+  }
+
+  if(!moved)return;
+  score+=gained;
+  scoreEl.textContent=score;
+  if(score>best){best=score;bestEl.textContent=best;}
+  if(gained>=64){msg.textContent="🔥 +"+gained+" !";SFX.bon();}
+  else if(gained>0){msg.textContent="+"+gained;SFX.tap();}
+  animT=7; // ~120 ms de glissement
+  setTimeout(()=>{
+    // purge des tuiles fusionnées, pop des résultats
+    tiles=tiles.filter(t=>!t.merging);
+    for(const t of tiles){
+      if(t.justMerged){t.pop=0.6;delete t.justMerged;}
+      t.pr=t.r;t.pc=t.c;
+    }
+    spawn();
+    if(won&&!over){
+      won='affiché';
+      msg.textContent="🏆 2048 atteint ! Continue pour le record...";
+      SFX.victoire();
+      confettiParts=confetti(cvs,ctx,W/2,H*0.4);
+    }
+    checkOver();
+  },130);
+}
+
+function checkOver(){
+  const g=grid();
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    if(!g[r][c])return;
+    const v=g[r][c].v;
+    if(r+1<N&&g[r+1][c]&&g[r+1][c].v===v)return;
+    if(c+1<N&&g[r][c+1]&&g[r][c+1].v===v)return;
+  }
+  over=true;
+  const maxV=Math.max(...tiles.map(t=>t.v));
+  finTitre.textContent=score+" pts";
+  finTexte.textContent = maxV>=2048 ? "2048 atteint, quelle partie ! Le classement hebdo t'attend."
+    : maxV>=512 ? "Belle tuile "+maxV+" ! Encore un effort pour le 2048."
+    : "Le plateau est plein... Regroupe tes grosses tuiles dans un coin et rejoue !";
+  if(maxV<2048){if(maxV>=512)SFX.tap();else SFX.defaite();}
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'2048',score:Math.round(score/3),victoire:maxV>=2048},'*');}catch(e){}}
+  fin.style.display='flex';
+}
+
+document.getElementById('rejouer').addEventListener('click',()=>{
+  fin.style.display='none';confettiParts=[];reset();
+});
+
+// ---- Rendu ----
+function cellXY(r,c){
+  return {x:ox+gap+(cell+gap)*c, y:oy+gap+(cell+gap)*r};
+}
+function draw(dt){
+  if(animT>0)animT-=dt;
+  ctx.fillStyle='#12130F';ctx.fillRect(0,0,W,H);
+  // panneau
+  ctx.fillStyle='#2a2c24';
+  ctx.beginPath();ctx.roundRect(ox,oy,S,S,14);ctx.fill();
+  // cases vides
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    const {x,y}=cellXY(r,c);
+    ctx.fillStyle='#3a3d36';
+    ctx.beginPath();ctx.roundRect(x,y,cell,cell,10);ctx.fill();
+  }
+  // tuiles (fusionnantes dessous, puis normales)
+  const prog=animT>0?1-animT/7:1;
+  const ordre=tiles.slice().sort((a,b)=>(a.merging?0:1)-(b.merging?0:1));
+  for(const t of ordre){
+    if(t.pop<1)t.pop=Math.min(1,t.pop+0.08*dt);
+    const fr=t.pr+(t.r-t.pr)*prog, fc=t.pc+(t.c-t.pc)*prog;
+    const x=ox+gap+(cell+gap)*fc, y=oy+gap+(cell+gap)*fr;
+    const [bg,fg]=style(t.v);
+    const p=t.pop, off=cell*(1-p)/2;
+    ctx.fillStyle=bg;
+    ctx.beginPath();ctx.roundRect(x+off,y+off,cell*p,cell*p,10);ctx.fill();
+    if(t.v>=2048){
+      ctx.strokeStyle='#E32219';ctx.lineWidth=3;ctx.stroke();
+    }
+    ctx.fillStyle=fg;
+    const digits=(''+t.v).length;
+    const fs=cell*(digits<=2?0.42:digits===3?0.34:0.27);
+    ctx.font='bold '+Math.round(fs)+'px "Arial Black"';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(t.v, x+cell/2, y+cell/2+1);
+  }
+}
+
+// ---- Entrées ----
+let ts=null;
+cvs.addEventListener('touchstart',e=>{
+  ts={x:e.touches[0].clientX,y:e.touches[0].clientY};
+  e.preventDefault();
+},{passive:false});
+cvs.addEventListener('touchend',e=>{
+  if(!ts)return;
+  const dx=e.changedTouches[0].clientX-ts.x;
+  const dy=e.changedTouches[0].clientY-ts.y;
+  ts=null;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<24)return;
+  if(Math.abs(dx)>Math.abs(dy))move(0,Math.sign(dx));
+  else move(Math.sign(dy),0);
+  e.preventDefault();
+},{passive:false});
+let ms=null;
+cvs.addEventListener('mousedown',e=>{ms={x:e.clientX,y:e.clientY};});
+window.addEventListener('mouseup',e=>{
+  if(!ms)return;
+  const dx=e.clientX-ms.x, dy=e.clientY-ms.y;
+  ms=null;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<24)return;
+  if(Math.abs(dx)>Math.abs(dy))move(0,Math.sign(dx));
+  else move(Math.sign(dy),0);
+});
+window.addEventListener('keydown',e=>{
+  const m={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
+  if(m[e.key]){move(...m[e.key]);e.preventDefault();}
+});
+
+// hook de test
+window.__t2048={state:()=>({score,tiles:tiles.map(t=>({r:t.r,c:t.c,v:t.v})),over,won,confettiN:confettiParts.length,muet:SFX.estMuet()}),
+  move:(dr,dc)=>move(dr,dc),
+  forcerVictoire:()=>{
+    tiles=[{id:nextId++,r:0,c:0,v:1024,pr:0,pc:0,pop:1,merging:false},
+           {id:nextId++,r:0,c:1,v:1024,pr:0,pc:1,pop:1,merging:false}];
+    move(0,-1); // fusionne les deux 1024 -> 2048
+  }};
+
+// ---- Boucle ----
+let last=0;
+function loop(now){
+  const dt=Math.min(2.5,(now-last)/16.7); last=now;
+  draw(dt);
+  if(confettiParts.length)drawConfetti(ctx,confettiParts,dt);
+  requestAnimationFrame(loop);
+}
+resize();reset();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

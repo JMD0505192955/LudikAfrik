@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Mon Maquis Faso</title>
+<style>
+  :root{--vert:#0E7A3C;--rouge:#E32219;--or:#F5C21B;--nuit:#12130F;--craie:#FAF7EF;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:#1a1510;font-family:"Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;
+    user-select:none;-webkit-user-select:none;}
+  header{width:100%;max-width:430px;padding:9px 14px 5px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-family:"Arial Black";font-size:17px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-weight:400;font-size:8.5px;letter-spacing:2.5px;color:#8b8f84;margin-top:3px;}
+  #argentBox{text-align:right;line-height:1.2;}
+  #argent{font-family:"Arial Black";font-size:19px;color:var(--or);}
+  #revenu{font-size:9.5px;color:#8b8f84;letter-spacing:.5px;}
+  #wrap{width:100%;max-width:430px;flex:1;overflow-y:auto;padding:0 12px 14px;}
+  .poste{background:linear-gradient(160deg,#33261a 0%,#1e1710 100%);border:1px solid rgba(245,194,27,.14);
+    border-radius:14px;padding:11px 12px;margin-bottom:10px;position:relative;overflow:hidden;
+    box-shadow:0 2px 8px rgba(0,0,0,.45);}
+  .poste.bloque{opacity:.6;}
+  .pTop{display:flex;align-items:center;gap:10px;}
+  .pIco{width:46px;height:46px;border-radius:11px;background:rgba(245,194,27,.08);
+    display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;
+    border:1px solid rgba(245,194,27,.15);}
+  .pInfo{flex:1;min-width:0;}
+  .pNom{font-family:"Arial Black";font-size:14px;display:flex;align-items:center;gap:6px;}
+  .pNiv{font-size:10px;background:rgba(245,194,27,.18);color:var(--or);border-radius:999px;
+    padding:2px 7px;font-weight:bold;}
+  .pMeta{font-size:10.5px;color:#a89878;margin-top:3px;}
+  .pGerant{font-size:10px;color:#8fbf6e;margin-top:2px;display:none;}
+  .pGerant.on{display:block;}
+  .barre{height:7px;background:rgba(0,0,0,.45);border-radius:99px;margin:9px 0 8px;overflow:hidden;}
+  .barre>div{height:100%;background:linear-gradient(90deg,#F5C21B,#F28C1B);width:0%;border-radius:99px;}
+  .pBtns{display:flex;gap:7px;}
+  .pBtns button{flex:1;border-radius:9px;padding:9px 4px;font-family:inherit;font-size:11.5px;
+    border:1px solid rgba(245,194,27,.25);background:rgba(245,194,27,.10);color:var(--craie);font-weight:bold;}
+  .pBtns button:active{transform:scale(.96);}
+  .pBtns button:disabled{opacity:.35;}
+  .pBtns .bServir{background:var(--vert);border-color:var(--vert);}
+  .pBtns .bGerant{background:rgba(143,191,110,.14);border-color:rgba(143,191,110,.4);color:#8fbf6e;}
+  #bandeauPass{background:#2a2308;border:1px solid #6b5a1a;border-radius:12px;padding:10px 12px;
+    font-size:11.5px;color:#e8dcb0;margin-bottom:11px;line-height:1.45;}
+  #bandeauPass b{color:var(--or);}
+  #entete{background:linear-gradient(160deg,#3a2a16,#241a0e);border:1px solid rgba(245,194,27,.16);
+    border-radius:14px;padding:12px;margin-bottom:11px;}
+  #entete .ligne{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:#c9b98f;}
+  #entete .ligne+.ligne{margin-top:6px;}
+  #entete b{color:var(--craie);font-family:"Arial Black";}
+  #actionsG{display:flex;gap:8px;margin-bottom:11px;}
+  #actionsG button{flex:1;border-radius:11px;padding:11px 4px;font-family:inherit;font-size:12px;
+    font-weight:bold;border:none;}
+  #btnBoost{background:var(--or);color:var(--nuit);}
+  #btnBoost:disabled{opacity:.4;}
+  #btnInvest{background:rgba(227,34,25,.16);border:1px solid rgba(227,34,25,.5);color:#ff7a6e;}
+  #msg{text-align:center;font-size:12px;color:var(--or);min-height:20px;margin-bottom:9px;}
+  .voile{position:fixed;inset:0;background:rgba(10,7,3,.9);display:none;align-items:center;
+    justify-content:center;padding:20px;z-index:50;}
+  .modal{background:#231a10;border:1px solid rgba(245,194,27,.3);border-radius:16px;padding:20px;
+    max-width:340px;width:100%;text-align:center;}
+  .modal h2{font-family:"Arial Black";font-size:19px;color:var(--or);margin-bottom:8px;}
+  .modal p{font-size:13px;color:#c9b98f;line-height:1.5;margin-bottom:16px;}
+  .modal button{background:var(--or);color:var(--nuit);border:none;border-radius:999px;
+    padding:12px 28px;font-family:inherit;font-size:14px;font-weight:bold;}
+  .modal button.ghost{background:none;border:1px solid #57594f;color:#c9b98f;margin-top:8px;}
+  footer{width:100%;max-width:430px;padding:5px 14px 9px;text-align:center;
+    font-size:10px;color:#6c7064;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">MON MAQUIS <span>FASO</span><small>FAIS PROSPÉRER TON AFFAIRE</small></div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:29px;height:29px;font-size:12px">🔊</button>
+    <div id="argentBox">
+      <div id="argent">0 F</div>
+      <div id="revenu">0 F/s</div>
+    </div>
+  </div>
+</header>
+<div id="wrap">
+  <div id="bandeauPass"></div>
+  <div id="entete">
+    <div class="ligne"><span>⭐ Réputation</span><b id="reputation">0</b></div>
+    <div class="ligne"><span>👥 Clients servis</span><b id="clients">0</b></div>
+    <div class="ligne"><span>💼 Investisseurs</span><b id="investisseurs">0</b></div>
+  </div>
+  <div id="actionsG">
+    <button id="btnBoost">⚡ Coup de feu (×3)</button>
+    <button id="btnInvest">💼 Investisseurs</button>
+  </div>
+  <div id="msg">Touche un poste pour lancer le service</div>
+  <div id="postes"></div>
+</div>
+<footer>Démo VAS — progression sauvegardée sur cet appareil</footer>
+
+<div class="voile" id="vModal"><div class="modal">
+  <h2 id="mTitre"></h2>
+  <p id="mTexte"></p>
+  <button id="mOk">COMPRIS</button>
+  <button class="ghost" id="mAnnul" style="display:none">Plus tard</button>
+</div></div>
+
+<script>
+(function(){
+"use strict";
+// ---------- Son ----------
+var actx,muet=false;
+try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+function ac(){if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)();return actx;}
+function tone(f,d,t,v,gl){if(muet)return;try{var c=ac(),o=c.createOscillator(),g=c.createGain();
+o.type=t||'sine';o.frequency.value=f;if(gl)o.frequency.linearRampToValueAtTime(gl,c.currentTime+d);
+g.gain.value=v||0.10;g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+d);
+o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+d);}catch(e){}}
+var SFX={
+  tap:function(){tone(430,0.05,'square',0.06);},
+  piece:function(){tone(988,0.07,'triangle',0.09,1400);},
+  achat:function(){tone(523,0.08,'sine',0.11);setTimeout(function(){tone(784,0.10,'sine',0.11);},60);},
+  gros:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.16,'sine',0.13);},i*80);});},
+  refus:function(){tone(180,0.18,'sawtooth',0.09,120);},
+  // ouverture d'un nouveau poste : fanfare montante
+  ouverture:function(){[392,523,659,784].forEach(function(f,i){setTimeout(function(){tone(f,0.16,'triangle',0.13);},i*90);});},
+  // coup de feu : montée d'énergie
+  boost:function(){[330,440,554,659,880].forEach(function(f,i){setTimeout(function(){tone(f,0.10,'square',0.09);},i*55);});},
+  // retour après absence : carillon doux
+  retour:function(){[659,784,988].forEach(function(f,i){setTimeout(function(){tone(f,0.28,'sine',0.11);},i*180);});},
+  estMuet:function(){return muet;},
+  toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+};
+(function(){var b=document.getElementById('btnSon');
+function m(){b.textContent=SFX.estMuet()?'🔇':'🔊';}m();
+b.addEventListener('click',function(){SFX.toggle();m();});})();
+
+var $=function(i){return document.getElementById(i);};
+
+// ================= DÉFINITION DES POSTES =================
+var POSTES=[
+  {id:'grill', nom:'Le Grill',      ico:'🍢', prixBase:0,     revBase:8,     dureeBase:1.2, deblo:0,
+   desc:'Brochettes et poulet braisé', gerant:900,   gerantNom:'Tantie Salimata'},
+  {id:'bar',   nom:'Le Bar',        ico:'🍺', prixBase:120,   revBase:34,    dureeBase:2.4, deblo:120,
+   desc:'Dolo, bière fraîche et sucreries', gerant:4500, gerantNom:'Karim le barman'},
+  {id:'cuisine',nom:'La Cuisine',   ico:'🍲', prixBase:900,   revBase:180,   dureeBase:4.5, deblo:900,
+   desc:'Riz gras, tô et sauce arachide', gerant:22000, gerantNom:'Mama Fatou'},
+  {id:'terrasse',nom:'La Terrasse', ico:'🪑', prixBase:6500,  revBase:900,   dureeBase:7,   deblo:6500,
+   desc:'Tables sous les manguiers', gerant:130000, gerantNom:'Boureima'},
+  {id:'sono',  nom:'La Sono',       ico:'🎶', prixBase:45000, revBase:5200,  dureeBase:11,  deblo:45000,
+   desc:'Ambiance et soirées coupé-décalé', gerant:800000, gerantNom:'DJ Zoumana'},
+  {id:'salle', nom:'La Grande Salle',ico:'🎪',prixBase:320000,revBase:32000, dureeBase:17,  deblo:320000,
+   desc:'Baptêmes, mariages et concerts', gerant:5500000, gerantNom:'Madame Zenabo'},
+];
+
+// ================= ÉTAT =================
+var S;
+function etatVierge(){
+  return {argent:15, clients:0, reputation:0, investisseurs:0,
+    postes:POSTES.map(function(p,i){return {niveau:i===0?1:0, gerant:false, prog:0, actif:false};}),
+    boostFin:0, derniereVisite:Date.now(), passRequis:false};
+}
+function charger(){
+  try{
+    var d=localStorage.getItem('fasogames_maquis');
+    if(d){S=JSON.parse(d);
+      if(!S.postes||S.postes.length!==POSTES.length)S=etatVierge();
+    }else S=etatVierge();
+  }catch(e){S=etatVierge();}
+}
+function sauver(){try{S.derniereVisite=Date.now();localStorage.setItem('fasogames_maquis',JSON.stringify(S));}catch(e){}}
+charger();
+
+// ---- Accès : pass Semaine ou Mois requis au-delà d'un certain stade ----
+var SEUIL_DEMO=3; // nombre de postes débloqués en accès libre
+function passOk(){
+  // le hub informe le jeu via postMessage ; par défaut on suppose la démo
+  return typeof window.__passType!=='undefined' &&
+         (window.__passType==='Semaine'||window.__passType==='Mois');
+}
+function postesDebloqués(){
+  return S.postes.filter(function(p){return p.niveau>0;}).length;
+}
+function limiteAtteinte(){
+  return !passOk() && postesDebloqués()>=SEUIL_DEMO;
+}
+
+// ================= CALCULS =================
+function coutAmelioration(i){
+  var p=POSTES[i], e=S.postes[i];
+  if(e.niveau===0)return p.deblo;
+  return Math.round(p.prixBase*Math.pow(1.14,e.niveau)+p.revBase*2);
+}
+function revenuPoste(i){
+  var p=POSTES[i], e=S.postes[i];
+  if(e.niveau===0)return 0;
+  var mult=1+S.investisseurs*0.25;
+  return Math.round(p.revBase*e.niveau*mult*(boostActif()?3:1));
+}
+function dureePoste(i){
+  var p=POSTES[i], e=S.postes[i];
+  // le service accélère légèrement avec le niveau
+  var d=p.dureeBase*Math.pow(0.985,Math.max(0,e.niveau-1));
+  return Math.max(0.55,d)*(boostActif()?0.4:1);
+}
+function revenuParSeconde(){
+  var t=0;
+  for(var i=0;i<POSTES.length;i++){
+    var e=S.postes[i];
+    if(e.niveau>0&&e.gerant)t+=revenuPoste(i)/dureePoste(i);
+  }
+  return t;
+}
+function boostActif(){return Date.now()<S.boostFin;}
+function fmt(n){
+  n=Math.floor(n);
+  if(n>=1e9)return (n/1e9).toFixed(2)+' Md';
+  if(n>=1e6)return (n/1e6).toFixed(2)+' M';
+  if(n>=1e4)return Math.round(n/1e3)+' k';
+  return n.toLocaleString('fr-FR');
+}
+function coutInvestisseur(){
+  return Math.round(500000*Math.pow(3.2,S.investisseurs));
+}
+
+// ================= RENDU =================
+function rendre(){
+  $('argent').textContent=fmt(S.argent)+' F';
+  var rps=revenuParSeconde();
+  $('revenu').textContent=(rps>0?'+'+fmt(rps)+' F/s':'service manuel')+(boostActif()?' ⚡':'');
+  $('reputation').textContent=fmt(S.reputation);
+  $('clients').textContent=fmt(S.clients);
+  $('investisseurs').textContent=S.investisseurs+(S.investisseurs?' (×'+(1+S.investisseurs*0.25).toFixed(2)+')':'');
+  $('btnBoost').disabled=boostActif();
+  $('btnBoost').textContent=boostActif()?'⚡ Coup de feu en cours':'⚡ Coup de feu (×3)';
+  $('btnInvest').textContent='💼 Investisseur · '+fmt(coutInvestisseur())+' F';
+
+  // bandeau d'accès
+  var bp=$('bandeauPass');
+  if(passOk()){
+    bp.innerHTML='✅ <b>Pass '+window.__passType+'</b> actif — ton maquis progresse même hors ligne.';
+  }else if(limiteAtteiente_safe()){
+    bp.innerHTML='🔒 <b>Démo terminée</b> — un <b>pass Semaine ou Mois</b> débloque les postes suivants, les gérants et les gains hors ligne. Ta progression est conservée.';
+  }else{
+    bp.innerHTML='🎁 <b>Démo libre</b> : découvre les '+SEUIL_DEMO+' premiers postes. Un <b>pass Semaine ou Mois</b> ouvre tout le maquis.';
+  }
+
+  var h='';
+  POSTES.forEach(function(p,i){
+    var e=S.postes[i];
+    var ouvert=e.niveau>0;
+    var cout=coutAmelioration(i);
+    var bloqueParPass=!ouvert&&limiteAtteiente_safe();
+    h+='<div class="poste'+(ouvert?'':' bloque')+'" data-i="'+i+'">'+
+      '<div class="pTop">'+
+        '<div class="pIco">'+p.ico+'</div>'+
+        '<div class="pInfo">'+
+          '<div class="pNom">'+p.nom+(ouvert?'<span class="pNiv">Niv. '+e.niveau+'</span>':'')+'</div>'+
+          '<div class="pMeta">'+(ouvert
+             ? fmt(revenuPoste(i))+' F par service · '+dureePoste(i).toFixed(1)+' s'
+             : p.desc)+'</div>'+
+          '<div class="pGerant'+(e.gerant?' on':'')+'">👤 '+p.gerantNom+' s\'en occupe</div>'+
+        '</div>'+
+      '</div>'+
+      (ouvert?'<div class="barre"><div style="width:'+Math.round(e.prog*100)+'%"></div></div>':'<div style="height:9px"></div>')+
+      '<div class="pBtns">'+
+        (ouvert
+          ? '<button class="bServir" data-act="servir" data-i="'+i+'"'+(e.gerant?' disabled':'')+'>'+(e.gerant?'Automatique':'Servir')+'</button>'+
+            '<button data-act="amel" data-i="'+i+'"'+(S.argent<cout?' disabled':'')+'>⬆ '+fmt(cout)+' F</button>'+
+            (e.gerant?'':'<button class="bGerant" data-act="gerant" data-i="'+i+'"'+(S.argent<p.gerant?' disabled':'')+'>👤 '+fmt(p.gerant)+' F</button>')
+          : '<button data-act="amel" data-i="'+i+'"'+((S.argent<cout||bloqueParPass)?' disabled':'')+'>'+
+              (bloqueParPass?'🔒 Pass requis':'Ouvrir · '+fmt(cout)+' F')+'</button>')+
+      '</div>'+
+    '</div>';
+  });
+  $('postes').innerHTML=h;
+  document.querySelectorAll('[data-act]').forEach(function(b){
+    b.addEventListener('click',function(ev){
+      ev.stopPropagation();
+      var i=+b.dataset.i;
+      if(b.dataset.act==='servir')servir(i);
+      else if(b.dataset.act==='amel')ameliorer(i);
+      else if(b.dataset.act==='gerant')engager(i);
+    });
+  });
+}
+// nom volontairement distinct pour éviter toute collision
+function limiteAtteiente_safe(){return limiteAtteinte();}
+
+// ================= ACTIONS =================
+function servir(i){
+  var e=S.postes[i];
+  if(e.niveau===0||e.actif)return;
+  e.actif=true;e.prog=0;
+  SFX.tap();
+}
+function ameliorer(i){
+  var e=S.postes[i], cout=coutAmelioration(i);
+  if(!e.niveau&&limiteAtteinte()){
+    modal('Pass requis 🔒',
+      'Les postes suivants, les gérants et les gains hors ligne nécessitent un pass Semaine ou Mois. '+
+      'Ta progression actuelle est conservée : tu retrouveras ton maquis intact.');
+    SFX.refus();return;
+  }
+  if(S.argent<cout){SFX.refus();$('msg').textContent='Pas assez d\'argent (il faut '+fmt(cout)+' F)';return;}
+  S.argent-=cout;
+  var nouveau=e.niveau===0;
+  e.niveau++;
+  if(nouveau)SFX.ouverture();else SFX.achat();
+  $('msg').textContent=nouveau?'🎉 '+POSTES[i].nom+' ouvert !':POSTES[i].nom+' passe niveau '+e.niveau;
+  if(nouveau)S.reputation+=25;
+  sauver();rendre();
+}
+function engager(i){
+  var e=S.postes[i], p=POSTES[i];
+  if(e.gerant)return;
+  if(!passOk()){
+    modal('Pass requis 🔒','Les gérants automatisent ton maquis même quand tu n\'es pas là. '+
+      'Cette fonctionnalité fait partie du pass Semaine ou Mois.');
+    SFX.refus();return;
+  }
+  if(S.argent<p.gerant){SFX.refus();$('msg').textContent='Pas assez pour embaucher '+p.gerantNom;return;}
+  S.argent-=p.gerant;e.gerant=true;
+  SFX.gros();
+  $('msg').textContent='👤 '+p.gerantNom+' rejoint ton équipe !';
+  S.reputation+=50;
+  sauver();rendre();
+}
+$('btnBoost').addEventListener('click',function(){
+  if(boostActif())return;
+  S.boostFin=Date.now()+30000;
+  SFX.boost();
+  $('msg').textContent='⚡ Coup de feu ! Tout tourne 3× plus vite pendant 30 s';
+  rendre();
+});
+$('btnInvest').addEventListener('click',function(){
+  var cout=coutInvestisseur();
+  if(S.argent<cout){
+    modal('Investisseurs 💼',
+      'Avec '+fmt(cout)+' F, un investisseur entre au capital : tous tes revenus augmentent de 25 % de façon permanente. '+
+      'Il te manque '+fmt(cout-S.argent)+' F.');
+    SFX.refus();return;
+  }
+  S.argent-=cout;S.investisseurs++;S.reputation+=200;
+  SFX.gros();
+  $('msg').textContent='💼 Nouvel investisseur ! Revenus ×'+(1+S.investisseurs*0.25).toFixed(2);
+  sauver();rendre();
+});
+function modal(titre,texte){
+  $('mTitre').textContent=titre;$('mTexte').textContent=texte;
+  $('vModal').style.display='flex';
+}
+$('mOk').addEventListener('click',function(){$('vModal').style.display='none';});
+
+// ================= BOUCLE =================
+var dernier=Date.now();
+function boucle(){
+  var now=Date.now(), dt=(now-dernier)/1000; dernier=now;
+  if(dt>0&&dt<5){
+    var gagne=0, servis=0;
+    for(var i=0;i<POSTES.length;i++){
+      var e=S.postes[i];
+      if(e.niveau===0)continue;
+      if(e.actif||e.gerant){
+        if(!e.actif){e.actif=true;}
+        e.prog+=dt/dureePoste(i);
+        if(e.prog>=1){
+          e.prog=0;
+          gagne+=revenuPoste(i);
+          servis++;
+          if(!e.gerant)e.actif=false;
+        }
+      }
+    }
+    if(gagne>0){
+      S.argent+=gagne;S.clients+=servis;S.reputation+=servis;
+      if(Math.random()<0.35)SFX.piece();
+    }
+    majLeger();
+  }
+  requestAnimationFrame(boucle);
+}
+function majLeger(){
+  $('argent').textContent=fmt(S.argent)+' F';
+  var rps=revenuParSeconde();
+  $('revenu').textContent=(rps>0?'+'+fmt(rps)+' F/s':'service manuel')+(boostActif()?' ⚡':'');
+  $('clients').textContent=fmt(S.clients);
+  $('reputation').textContent=fmt(S.reputation);
+  document.querySelectorAll('.poste').forEach(function(el){
+    var i=+el.dataset.i, b=el.querySelector('.barre>div');
+    if(b)b.style.width=Math.round(S.postes[i].prog*100)+'%';
+  });
+}
+
+// ---- gains hors ligne (pass uniquement) ----
+function gainsHorsLigne(){
+  if(!passOk())return;
+  var ecoule=(Date.now()-(S.derniereVisite||Date.now()))/1000;
+  if(ecoule<60)return;
+  var max=Math.min(ecoule,8*3600); // plafonné à 8 h
+  var rps=0;
+  for(var i=0;i<POSTES.length;i++){
+    var e=S.postes[i];
+    if(e.niveau>0&&e.gerant)rps+=revenuPoste(i)/dureePoste(i);
+  }
+  var gain=Math.round(rps*max*0.5); // 50 % du rythme normal
+  if(gain>0){
+    S.argent+=gain;
+    var h=Math.floor(max/3600), m=Math.floor((max%3600)/60);
+    SFX.retour();
+    modal('Pendant ton absence 🌙',
+      'Ton équipe a fait tourner le maquis pendant '+(h?h+' h ':'')+m+' min et a rapporté '+fmt(gain)+' F.');
+  }
+}
+
+// ---- communication avec le hub ----
+window.addEventListener('message',function(e){
+  if(e.data&&e.data.type==='faso_pass'){
+    window.__passType=e.data.pass;
+    rendre();
+  }
+});
+if(window.parent!==window){
+  try{window.parent.postMessage({type:'faso_demande_pass'},'*');}catch(e){}
+}
+
+// envoi du score au hub à intervalles
+setInterval(function(){
+  sauver();
+  if(window.parent!==window){
+    try{window.parent.postMessage({type:'faso_score',jeu:'Mon Maquis',
+      score:Math.round(Math.min(600,S.reputation*0.4)),victoire:S.investisseurs>0},'*');}catch(e){}
+  }
+},20000);
+window.addEventListener('beforeunload',sauver);
+
+window.__maquis={
+  state:function(){return {argent:S.argent,clients:S.clients,reputation:S.reputation,
+    investisseurs:S.investisseurs,postes:S.postes.map(function(p){return {n:p.niveau,g:p.gerant};}),
+    rps:revenuParSeconde(),boost:boostActif(),passOk:passOk(),limite:limiteAtteinte(),muet:SFX.estMuet()};},
+  donner:function(n){S.argent+=n;rendre();},
+  simulerPass:function(t){window.__passType=t;rendre();},
+  servir:servir,ameliorer:ameliorer,engager:engager,
+  reset:function(){S=etatVierge();sauver();rendre();}
+};
+
+gainsHorsLigne();
+rendre();
+requestAnimationFrame(boucle);
+})();
+</script>
+</body>
+</html>

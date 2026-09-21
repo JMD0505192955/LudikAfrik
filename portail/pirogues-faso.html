@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Pirogues Faso</title>
+<style>
+  :root{--vert:#0E7A3C;--rouge:#E32219;--or:#F5C21B;--nuit:#12130F;--craie:#FAF7EF;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{background:var(--nuit);font-family:"Arial Black","Segoe UI",Arial,sans-serif;color:var(--craie);
+    display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;}
+  header{width:100%;max-width:430px;padding:12px 16px 8px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-size:20px;letter-spacing:1px;line-height:1;}
+  .logo span{color:var(--or);}
+  .logo small{display:block;font-family:Arial,sans-serif;font-weight:400;font-size:9px;letter-spacing:3px;color:#8b8f84;margin-top:3px;}
+  .scores{text-align:right;line-height:1.25;}
+  .scores .val{font-size:20px;color:var(--or);}
+  .scores .lbl{font-family:Arial,sans-serif;font-size:9px;letter-spacing:2px;color:#8b8f84;}
+  #msg{height:26px;font-size:14px;letter-spacing:.5px;text-align:center;color:var(--or);}
+  #wrap{position:relative;width:100%;max-width:430px;flex:1;display:flex;justify-content:center;padding:0 12px 4px;}
+  canvas{display:block;border-radius:14px;}
+  #fin{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    background:rgba(18,19,15,.88);text-align:center;padding:24px;border-radius:14px;}
+  #fin h2{font-size:30px;color:var(--or);margin-bottom:6px;}
+  #fin p{font-family:Arial,sans-serif;font-size:14px;color:#c9ccc0;margin-bottom:20px;line-height:1.5;}
+  #fin button{font-family:inherit;font-size:16px;letter-spacing:1px;color:var(--nuit);
+    background:var(--or);border:none;border-radius:999px;padding:14px 34px;}
+  #fin button:active{transform:scale(.96);}
+  footer{width:100%;max-width:430px;padding:8px 16px 14px;text-align:center;
+    font-family:Arial,sans-serif;font-size:11px;color:#6c7064;letter-spacing:.5px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">PIROGUES <span>FASO</span><small>PAGAIE GAUCHE-DROITE</small></div>
+  <div style="display:flex;align-items:center;gap:0"><button id="btnSon" style="background:none;border:1px solid #57594f;color:var(--craie);border-radius:999px;width:32px;height:32px;font-size:14px;margin-right:8px">🔊</button>
+<div class="scores"><div class="val" id="temps">0.0 s</div>
+  <div class="lbl">RECORD <span id="best">—</span></div></div>
+</div>
+</header>
+<div id="msg">Tape à GAUCHE puis à DROITE en alternance ! 🛶</div>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="fin"><h2 id="finTitre"></h2><p id="finTexte"></p><button id="rejouer">REJOUER</button></div>
+</div>
+<footer>Démo VAS — classement hebdo &amp; lots airtime à venir</footer>
+<script>
+(function(){
+"use strict";
+// ===== Kit sonore Faso Games (synthétisé, 0 Ko d'assets, silencieux par défaut respecté) =====
+var SFX=(function(){
+  var ctx,muet=false;
+  try{muet=localStorage.getItem('fasogames_mute')==='1';}catch(e){}
+  function ac(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();return ctx;}
+  function tone(freq,dur,type,vol,glide){
+    if(muet)return;
+    try{
+      var c=ac();var o=c.createOscillator();var g=c.createGain();
+      o.type=type||'sine';o.frequency.value=freq;
+      if(glide)o.frequency.linearRampToValueAtTime(glide,c.currentTime+dur);
+      g.gain.value=vol||0.15;
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+      o.connect(g);g.connect(c.destination);
+      o.start();o.stop(c.currentTime+dur);
+    }catch(e){}
+  }
+  return{
+    tap:function(){tone(440,0.05,'square',0.08);},
+    bon:function(){tone(523,0.09,'sine',0.14);setTimeout(function(){tone(784,0.12,'sine',0.14);},70);},
+    mauvais:function(){tone(160,0.22,'sawtooth',0.12,90);},
+    victoire:function(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){tone(f,0.18,'sine',0.15);},i*90);});},
+    defaite:function(){[392,330,262].forEach(function(f,i){setTimeout(function(){tone(f,0.22,'sine',0.12);},i*120);});},
+    piece:function(){tone(988,0.08,'triangle',0.12,1400);},
+    tick:function(){tone(300,0.03,'square',0.05);},
+    estMuet:function(){return muet;},
+    toggle:function(){muet=!muet;try{localStorage.setItem('fasogames_mute',muet?'1':'0');}catch(e){}return muet;}
+  };
+})();
+// Bouton mute (à placer dans le header de chaque jeu)
+function initBoutonSon(id){
+  var b=document.getElementById(id);
+  if(!b)return;
+  function maj(){b.textContent=SFX.estMuet()?'🔇':'🔊';}
+  maj();
+  b.addEventListener('click',function(){SFX.toggle();maj();});
+}
+// Confetti simple (petites particules colorées, pour les écrans de victoire)
+function confetti(canvas,ctx,cx,cy){
+  var parts=[];
+  var couleurs=['#F5C21B','#E32219','#0E7A3C','#3d5a80','#FAF7EF'];
+  for(var i=0;i<24;i++){
+    var a=Math.random()*Math.PI*2,v=2+Math.random()*3;
+    parts.push({x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2,g:0.12,vie:1,col:couleurs[i%couleurs.length],taille:3+Math.random()*3});
+  }
+  return parts;
+}
+function drawConfetti(ctx,parts,dt){
+  for(var i=parts.length-1;i>=0;i--){
+    var p=parts[i];
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;p.vie-=0.018*dt;
+    if(p.vie<=0){parts.splice(i,1);continue;}
+    ctx.globalAlpha=Math.max(0,p.vie);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.x-p.taille/2,p.y-p.taille/2,p.taille,p.taille);
+    ctx.globalAlpha=1;
+  }
+}
+initBoutonSon("btnSon");
+
+const cvs=document.getElementById('c'),ctx=cvs.getContext('2d');
+const tempsEl=document.getElementById('temps'),bestEl=document.getElementById('best');
+const msg=document.getElementById('msg'),fin=document.getElementById('fin');
+const finTitre=document.getElementById('finTitre'),finTexte=document.getElementById('finTexte');
+let W=0,H=0,DPR=1;
+let confettiParts=[];
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  const r=cvs.parentElement.getBoundingClientRect();
+  W=r.width-24;H=r.height-8;
+  cvs.style.width=W+'px';cvs.style.height=H+'px';
+  cvs.width=W*DPR;cvs.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize',resize);
+
+const DIST=900;
+let joueur, rivaux, started=false, over=false, chrono=0, best=null, lastSide=0, coupT=0, splashes=[];
+
+function reset(){
+  joueur={d:0,v:0,lane:1,fini:null,couleur:'#F5C21B',nom:'TOI'};
+  rivaux=[
+    {d:0,v:0,base:3.15,lane:0,fini:null,couleur:'#E32219',nom:'ROUGE'},
+    {d:0,v:0,base:3.45,lane:2,fini:null,couleur:'#3d5a80',nom:'BLEU'},
+  ];
+  started=false;over=false;chrono=0;lastSide=0;coupT=0;splashes=[];
+  tempsEl.textContent='0.0 s';
+  msg.textContent="Tape à GAUCHE puis à DROITE en alternance ! 🛶";
+}
+
+function pagaie(side){
+  if(over)return;
+  if(!started){started=true;msg.textContent="Vas-y, garde le rythme !";}
+  if(side!==lastSide){
+    joueur.v=Math.min(7.2,joueur.v+1.55);
+    lastSide=side;coupT=10;
+  }else{
+    joueur.v=Math.max(0,joueur.v-0.9);
+    msg.textContent="⚠️ Alterne gauche-droite !";
+    coupT=10;lastSide=side;
+  }
+  splashes.push({x:laneX(joueur.lane)+(side===1?26:-26),y:H*0.72,r:4,a:.8});
+}
+
+function laneX(l){return W*(0.25+l*0.25);}
+
+function step(dt){
+  for(const s of splashes){s.r+=0.5*dt;s.a-=0.03*dt;}
+  splashes=splashes.filter(s=>s.a>0);
+  if(coupT>0)coupT-=dt;
+  if(!started||over)return;
+  chrono+=dt/60;
+  tempsEl.textContent=chrono.toFixed(1)+' s';
+
+  // joueur : friction de l'eau proportionnelle (le rythme fait la vitesse)
+  joueur.v=Math.max(0,joueur.v-joueur.v*0.03*dt);
+  joueur.d+=joueur.v*dt*0.32;
+  if(joueur.fini===null&&joueur.d>=DIST)joueur.fini=chrono;
+
+  // rivaux : rythme irrégulier + léger élastique
+  for(const r of rivaux){
+    const oscill=Math.sin(chrono*3+r.base*7)*0.5;
+    const elastique=(joueur.d-r.d)*0.0012;
+    r.v=Math.max(1.5,r.base+oscill+elastique);
+    r.d+=r.v*dt*0.32;
+    if(r.fini===null&&r.d>=DIST)r.fini=chrono;
+  }
+
+  if(joueur.fini!==null)finish();
+}
+
+function finish(){
+  over=true;
+  const devant=rivaux.filter(r=>r.fini!==null&&r.fini<joueur.fini).length;
+  const place=devant+1;
+  const medaille=place===1?'🥇':place===2?'🥈':'🥉';
+  if(place===1&&(best===null||joueur.fini<best)){best=joueur.fini;bestEl.textContent=best.toFixed(1)+' s';}
+  finTitre.textContent=medaille+' '+place+(place===1?'ère':'e')+' place';
+  finTexte.textContent='Course bouclée en '+joueur.fini.toFixed(1)+' s. '+
+    (place===1?"Roi du fleuve ! Le classement hebdo t'attend."
+    :"Les rivaux ont mieux pagayé... Tape plus vite en alternant parfaitement !");
+  if(place===1){SFX.victoire();confettiParts=confetti(cvs,ctx,W/2,H*0.35);}else{SFX.defaite();}
+  var scoreEnvoi=place===1?450:place===2?260:140;
+  if(window.parent!==window){try{window.parent.postMessage({type:'faso_score',jeu:'Pirogues',score:scoreEnvoi,victoire:place===1},'*');}catch(e){}}
+  fin.style.display='flex';
+}
+
+document.getElementById('rejouer').addEventListener('click',()=>{fin.style.display='none';confettiParts=[];reset();});
+
+function yOf(d){ // position écran d'une pirogue selon sa distance relative au joueur
+  return H*0.72-(d-joueur.d)*0.55;
+}
+
+function draw(){
+  // rives
+  ctx.fillStyle='#0A5C2D';ctx.fillRect(0,0,W,H);
+  // fleuve
+  ctx.fillStyle='#3d5a80';
+  ctx.fillRect(W*0.1,0,W*0.8,H);
+  ctx.fillStyle='#8a5a33';
+  ctx.fillRect(W*0.1-5,0,5,H);ctx.fillRect(W*0.9,0,5,H);
+  // remous défilants
+  ctx.strokeStyle='rgba(250,247,239,.16)';ctx.lineWidth=2;
+  const off=(joueur.d*0.55)%46;
+  for(let y=-46+off;y<H;y+=46){
+    for(let i=0;i<3;i++){
+      const rx=W*(0.2+i*0.28)+Math.sin(y*0.08+i)*8;
+      ctx.beginPath();ctx.moveTo(rx,y);ctx.quadraticCurveTo(rx+11,y+4,rx+22,y);ctx.stroke();
+    }
+  }
+  // ligne d'arrivée si proche
+  const yFin=yOf(DIST);
+  if(yFin>-30&&yFin<H+10){
+    ctx.fillStyle='#FAF7EF';
+    for(let x=W*0.1;x<W*0.9;x+=22){
+      ctx.fillRect(x,yFin-6,11,12);
+      ctx.fillStyle=ctx.fillStyle==='#FAF7EF'?'#12130F':'#FAF7EF';
+    }
+    ctx.fillStyle='#F5C21B';
+    ctx.font='bold 13px Arial';ctx.textAlign='center';
+    ctx.fillText('ARRIVÉE',W/2,yFin-14);
+  }
+  // pirogues rivales
+  for(const r of rivaux)drawPirogue(laneX(r.lane),yOf(r.d),r.couleur,Math.sin(chrono*8+r.base*9)*0.4);
+  // pirogue joueur
+  drawPirogue(laneX(1),H*0.72,joueur.couleur,coupT>0?(lastSide===1?0.6:-0.6):0);
+  // éclaboussures
+  for(const s of splashes){
+    ctx.strokeStyle='rgba(250,247,239,'+s.a+')';
+    ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);ctx.stroke();
+  }
+  // barre de progression
+  ctx.fillStyle='rgba(18,19,15,.55)';
+  ctx.beginPath();ctx.roundRect(W/2-70,10,140,16,8);ctx.fill();
+  const ordre=[joueur,...rivaux];
+  for(const p of ordre){
+    const px=W/2-64+Math.min(1,p.d/DIST)*128;
+    ctx.fillStyle=p.couleur;
+    ctx.beginPath();ctx.arc(px,18,5,0,7);ctx.fill();
+  }
+  // zones de tap
+  if(!over){
+    ctx.fillStyle='rgba(250,247,239,'+(started?0.12:0.3)+')';
+    ctx.font='bold 26px "Arial Black"';ctx.textAlign='center';
+    ctx.fillText('👈',W*0.22,H-28);
+    ctx.fillText('👉',W*0.78,H-28);
+    ctx.strokeStyle='rgba(250,247,239,.1)';
+    ctx.beginPath();ctx.moveTo(W/2,H-70);ctx.lineTo(W/2,H);ctx.stroke();
+  }
+}
+
+function drawPirogue(x,y,col,tilt){
+  ctx.save();
+  ctx.translate(x,y);ctx.rotate(tilt*0.12);
+  // coque
+  ctx.fillStyle='#8a5a33';
+  ctx.beginPath();
+  ctx.moveTo(0,-34);
+  ctx.quadraticCurveTo(15,-8,13,20);
+  ctx.quadraticCurveTo(8,32,0,34);
+  ctx.quadraticCurveTo(-8,32,-13,20);
+  ctx.quadraticCurveTo(-15,-8,0,-34);
+  ctx.fill();
+  ctx.fillStyle='#6e4525';
+  ctx.beginPath();ctx.ellipse(0,0,8,22,0,0,7);ctx.fill();
+  // pagayeur
+  ctx.fillStyle=col;
+  ctx.beginPath();ctx.arc(0,-4,8,0,7);ctx.fill();
+  ctx.fillStyle='#12130F';
+  ctx.beginPath();ctx.arc(0,-9,5,0,7);ctx.fill();
+  // pagaie
+  ctx.strokeStyle='#F28C1B';ctx.lineWidth=3.5;ctx.lineCap='round';
+  const side=tilt>=0?1:-1;
+  ctx.beginPath();ctx.moveTo(side*4,-6);ctx.lineTo(side*17,8);ctx.stroke();
+  ctx.fillStyle='#F28C1B';
+  ctx.beginPath();ctx.ellipse(side*17,11,4,7,side*0.4,0,7);ctx.fill();
+  ctx.restore();
+}
+
+// ---- Entrées ----
+function tap(clientX){
+  const r=cvs.getBoundingClientRect();
+  pagaie(clientX-r.left<W/2?-1:1);
+}
+cvs.addEventListener('touchstart',e=>{tap(e.touches[0].clientX);e.preventDefault();},{passive:false});
+cvs.addEventListener('mousedown',e=>{tap(e.clientX);});
+window.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft')pagaie(-1);
+  if(e.key==='ArrowRight')pagaie(1);
+});
+window.__piro={state:()=>({d:joueur.d,v:joueur.v,chrono,over,confettiN:confettiParts.length,muet:SFX.estMuet()}),pagaie};
+
+// ---- Boucle ----
+let last=0;
+function loop(now){
+  const dt=Math.min(2.5,(now-last)/16.7);last=now;
+  step(dt);draw();
+  if(confettiParts.length)drawConfetti(ctx,confettiParts,dt);
+  requestAnimationFrame(loop);
+}
+resize();reset();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
