@@ -516,7 +516,7 @@ a { text-decoration:none; }
 
 })(typeof window !== 'undefined' ? window : this);
 </script>
-<link rel="icon" href="/assets/favicon.svg"><link rel="apple-touch-icon" href="/assets/icone-192.png"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#012662">
+<link rel="icon" href="/assets/favicon.svg"><link rel="apple-touch-icon" href="/assets/icone-192.png"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#111111">
 
 <script>
 window.CONTENUS_JEUX={
@@ -2476,6 +2476,50 @@ window.CONTENUS_JEUX={
   });
   var fr=$('faqRetour');
   if(fr)fr.addEventListener('click',function(){$('vueFaq').style.display='none';});
+})();
+</script>
+
+<!-- Bandeau de mise à jour (annexe B) -->
+<div id="pwaMaj" style="display:none;position:fixed;left:12px;right:12px;bottom:16px;z-index:9999;background:#012662;color:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 8px 30px rgba(1,38,98,.3);display:none;align-items:center;gap:12px;font-family:system-ui,sans-serif">
+  <span style="flex:1;font-size:14px">Une nouvelle version est disponible.</span>
+  <button id="pwaMajBtn" style="background:#FBAD01;color:#012662;border:none;border-radius:10px;padding:9px 16px;font-weight:700;font-family:inherit;cursor:pointer">Actualiser</button>
+</div>
+<!-- Instruction installation iOS (annexe C) -->
+<div id="pwaIos" style="display:none;position:fixed;left:12px;right:12px;bottom:16px;z-index:9998;background:#fff;color:#012662;border:1px solid rgba(1,38,98,.15);border-radius:14px;padding:14px 16px;box-shadow:0 8px 30px rgba(1,38,98,.15);align-items:center;gap:10px;font-family:system-ui,sans-serif">
+  <span style="flex:1;font-size:13.5px">Pour installer Ludikafrik : appuie sur <b>Partager</b> ⬆️ puis <b>« Sur l'écran d'accueil »</b>.</span>
+  <button id="pwaIosX" style="background:none;border:none;color:#7a8194;font-size:20px;cursor:pointer">✕</button>
+</div>
+<script>
+(function(){
+  // --- Service Worker + détection de mise à jour ---
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('/sw.js').then(function(reg){
+      reg.addEventListener('updatefound',function(){
+        var nouveau=reg.installing;
+        nouveau.addEventListener('statechange',function(){
+          if(nouveau.state==='installed' && navigator.serviceWorker.controller){
+            // une nouvelle version est prête : bandeau discret (jamais de reload forcé)
+            var b=document.getElementById('pwaMaj'); if(b)b.style.display='flex';
+          }
+        });
+      });
+    }).catch(function(){});
+    var btn=document.getElementById('pwaMajBtn');
+    if(btn)btn.addEventListener('click',function(){
+      // demander au SW de s'activer puis recharger
+      if(navigator.serviceWorker.controller)navigator.serviceWorker.controller.postMessage('skipWaiting');
+      location.reload();
+    });
+  }
+
+  // --- Instruction iOS (Safari ne propose jamais l'invite auto) ---
+  var estIos=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  var deja=window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if(estIos && !deja && !localStorage.getItem('ludik_ios_masque')){
+    setTimeout(function(){var e=document.getElementById('pwaIos'); if(e)e.style.display='flex';},3000);
+    var x=document.getElementById('pwaIosX');
+    if(x)x.addEventListener('click',function(){document.getElementById('pwaIos').style.display='none';localStorage.setItem('ludik_ios_masque','1');});
+  }
 })();
 </script>
 </body>
