@@ -1396,10 +1396,24 @@ window.CONTENUS_JEUX={
 
   // ---- classement ----
   function initiales(n){return n.replace(/[_\s]/g,'').slice(0,2).toUpperCase();}
-  function remplirClassement(){
+  async function remplirClassement(){
     var S=lire();
-    var tous=bots.slice();
-    if(S.user&&S.user.pseudo)tous.push([S.user.pseudo,S.points||0]);
+    var tous=null;
+    // 1) essayer le vrai classement depuis l'API
+    try{
+      var r=await fetch('/api/classement');
+      if(r.ok){
+        var j=await r.json();
+        if(j.ok && j.rangs && j.rangs.length){
+          tous=j.rangs.map(function(x){return [x.pseudo, x.meilleur||0];});
+        }
+      }
+    }catch(e){}
+    // 2) repli : bots + joueur local si l'API ne renvoie rien
+    if(!tous){
+      tous=bots.slice();
+      if(S.user&&S.user.pseudo)tous.push([S.user.pseudo,S.points||0]);
+    }
     tous.sort(function(a,b){return b[1]-a[1];});
     var cls=['gold','silver','bronze'];
     $('classementListe').innerHTML=tous.slice(0,20).map(function(j,i){
@@ -1623,7 +1637,7 @@ window.CONTENUS_JEUX={
 <script>
 (function(){
   var $=function(i){return document.getElementById(i);};
-  var codeAttendu=null, telComplet=null;
+  var codeAttendu=null, telComplet=null, apiDispo=false;
 
   function ouvrirInscription(){
     // repartir de l'étape 1
@@ -1691,20 +1705,34 @@ window.CONTENUS_JEUX={
   });
   $('insPays').addEventListener('change',majContrainte);
 
-  // ÉTAPE 1 : numéro -> envoi du code (validation par le référentiel)
-  $('insBtn1').addEventListener('click',function(){
+  // ÉTAPE 1 : numéro -> envoi du code (via l'API serveur, repli démo)
+  $('insBtn1').addEventListener('click',async function(){
     cacherErr('insErr1');
     var iso=isoCourant();
     var num=$('insTel').value.replace(/[^0-9]/g,'');
     var res=PV?PV.validatePhone(iso,num):{valide:num.length>=8};
     if(!res.valide){erreur('insErr1',res.erreur||'Numéro invalide.');return;}
     telComplet=res.international||($('insPays').value+num);
-    // OTP simulé (démo) — en production, appel serveur /inscription/code
-    codeAttendu=String(Math.floor(100000+Math.random()*900000));
+    $('insBtn1').disabled=true;
+    try{
+      var r=await fetch('/api/inscription/code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telephone:telComplet})});
+      var j=await r.json();
+      if(!r.ok||!j.ok){erreur('insErr1',j.erreur||'Envoi impossible.');$('insBtn1').disabled=false;return;}
+      // en mode démo, le serveur renvoie le code pour l'afficher
+      codeAttendu=j.code||null;
+      apiDispo=true;
+      if(j.demo && j.code){$('insCodeDemo').textContent=j.code;$('insDemo').style.display='';}
+      else{$('insDemo').style.display='none';}
+    }catch(e){
+      // repli : serveur injoignable -> mode démo local
+      apiDispo=false;
+      codeAttendu=String(Math.floor(100000+Math.random()*900000));
+      $('insCodeDemo').textContent=codeAttendu;$('insDemo').style.display='';
+    }
     $('insNumAff').textContent=telComplet+' ('+res.operateur+')';
-    $('insCodeDemo').textContent=codeAttendu;
     $('insE1').style.display='none';$('insE2').style.display='';
     $('insProgres').textContent='Étape 2 sur 3';
+    $('insBtn1').disabled=false;
     setTimeout(function(){$('insOtp').focus();},100);
   });
 
@@ -1715,32 +1743,51 @@ window.CONTENUS_JEUX={
     $('insOtp').value='';
   });
 
-  // ÉTAPE 2 : vérifier l'OTP
-  $('insBtn2').addEventListener('click',function(){
+  // ÉTAPE 2 : vérifier l'OTP (via l'API si dispo)
+  $('insBtn2').addEventListener('click',async function(){
     cacherErr('insErr2');
     var saisi=$('insOtp').value.replace(/[^0-9]/g,'');
     if(saisi.length!==6){erreur('insErr2','Le code fait 6 chiffres.');return;}
-    if(saisi!==codeAttendu){erreur('insErr2','Code incorrect. Réessaie.');return;}
+    if(apiDispo){
+      $('insBtn2').disabled=true;
+      try{
+        var r=await fetch('/api/inscription/verifier',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telephone:telComplet,code:saisi})});
+        var j=await r.json();
+        if(!r.ok||!j.ok){erreur('insErr2',j.erreur||'Code incorrect.');$('insBtn2').disabled=false;return;}
+      }catch(e){erreur('insErr2','Serveur injoignable.');$('insBtn2').disabled=false;return;}
+      $('insBtn2').disabled=false;
+    }else{
+      if(saisi!==codeAttendu){erreur('insErr2','Code incorrect. Réessaie.');return;}
+    }
     $('insE2').style.display='none';$('insE3').style.display='';
     $('insProgres').textContent='Étape 3 sur 3';
     setTimeout(function(){$('insPseudo').focus();},100);
   });
 
-  // ÉTAPE 3 : pseudo -> créer le compte
-  $('insBtn3').addEventListener('click',function(){
+  // ÉTAPE 3 : pseudo -> créer le compte (EN BASE via l'API + local)
+  $('insBtn3').addEventListener('click',async function(){
     cacherErr('insErr3');
     var p=$('insPseudo').value.trim();
     if(p.length<2||p.length>12){erreur('insErr3','Le pseudo doit faire de 2 à 12 caractères.');return;}
     if(!/^[\p{L}\p{N} _'-]+$/u.test(p)){erreur('insErr3','Caractères non autorisés dans le pseudo.');return;}
     if(!$('insCgu').checked){erreur('insErr3','Accepte les conditions pour continuer.');return;}
-    // sauver le compte dans le MÊME stockage que la mécanique (fasogames_state)
+    // 1) créer le compte EN BASE via l'API (si dispo)
+    if(apiDispo){
+      $('insBtn3').disabled=true;
+      try{
+        var r=await fetch('/api/inscription/finaliser',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telephone:telComplet,pseudo:p})});
+        var j=await r.json();
+        if(!r.ok||!j.ok){erreur('insErr3',j.erreur||'Création impossible.');$('insBtn3').disabled=false;return;}
+      }catch(e){erreur('insErr3','Serveur injoignable.');$('insBtn3').disabled=false;return;}
+      $('insBtn3').disabled=false;
+    }
+    // 2) sauver aussi en local (mécanique de jeu : points, pass...)
     try{
       var S=JSON.parse(localStorage.getItem('fasogames_state')||'{}');
       S.user={pseudo:p, tel:telComplet, cguAccepteLe:new Date().toISOString()};
       if(typeof S.points!=='number')S.points=0;
       localStorage.setItem('fasogames_state',JSON.stringify(S));
     }catch(e){}
-    // fermer l'inscription et revenir à l'accueil, rafraîchi
     $('vueInscription').style.display='none';
     location.reload();
   });
@@ -2409,6 +2456,10 @@ window.CONTENUS_JEUX={
 
   // activer le pass : écrit dans le stockage de la mécanique
   function activerPass(f, renouv){
+    // NOTE : en mode démo, le pass est activé en LOCAL uniquement.
+    // Le paiement réel (API /paiement/web) refuse tant que Moov/l'agrégateur
+    // n'est pas branché — c'est voulu : pas de fausse transaction en base.
+    // Le jour du branchement opérateur, cet appel passera par l'API.
     try{
       var S=JSON.parse(localStorage.getItem('fasogames_state')||'{}');
       var fin=new Date(Date.now()+f.duree_jours*86400000);

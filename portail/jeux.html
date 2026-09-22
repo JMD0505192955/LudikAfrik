@@ -1152,6 +1152,13 @@ function fermeJeu(){
       S.points+=pts;S.parties++;
       if(S.jeuxJoues.indexOf(jeuCourant)===-1)S.jeuxJoues.push(jeuCourant);
       sauve();
+      // remonter le score à l'API si le joueur a un compte (silencieux, sans bloquer le jeu)
+      try{
+        if(S.user&&S.user.tel){
+          fetch('/api/scores',{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({telephone:S.user.tel,jeu:jeuCourant,score:pts,victoire:!!dernierVictoireReelle})}).catch(function(){});
+        }
+      }catch(e){}
       toast('+'+pts+' pts pour ta partie de '+jeuCourant+' !'+(reel?' 🎯':''));
       majDefi(pts);
       verifierBadges();
